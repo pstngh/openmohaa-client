@@ -98,6 +98,10 @@ If enabled, the legs animation continues from its current time between animation
 
 This prevents some tricks such as `ghost walking` where a player rapidly switch weapons to avoid emitting footsteps sounds.
 
+### `g_playerStacking`
+
+If enabled, a player can stand on another player's head without being pushed off. Defaults to `0`.
+
 ### `g_teamdamage`
 
 - `0` (the default): Friendly fire disabled.

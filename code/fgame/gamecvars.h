@@ -336,6 +336,12 @@ extern cvar_t *g_spectatefollow_firstperson;
  */
 extern cvar_t *g_playeranim_legs_continous;
 
+/**
+ * @brief When enabled, players can stand on another player's head without being pushed off.
+ * 
+ */
+extern cvar_t *g_playerStacking;
+
 extern cvar_t *cl_running;
 
 extern cvar_t *g_instamsg_allowed;

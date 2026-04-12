@@ -4119,7 +4119,8 @@ void Player::ClientMove(usercmd_t *ucmd)
         Pmove(&pm);
         GetMoveInfo(&pm);
 
-        if (g_gametype->integer != GT_SINGLE_PLAYER && groundentity && groundentity->entity
+        if (!g_playerStacking->integer // Changed in OPM: determine if standing on another player's head is allowed
+            && g_gametype->integer != GT_SINGLE_PLAYER && groundentity && groundentity->entity
             && groundentity->entity->IsSubclassOfSentient()) {
             //
             // Added in 2.0
