@@ -340,11 +340,19 @@ static void CG_DrawServerLag()
     float     w, h;
     qhandle_t handle;
 
+    if (cgs.gametype == GT_SINGLE_PLAYER) {
+        // Fixed in 2.0
+        //  Don't draw server lag in single-player mode
+        return;
+    }
+
     if (!cg_drawsvlag->integer) {
         return;
     }
 
-    if (!developer->integer && !cgs.gametype) {
+    if (!developer->integer) {
+        // Changed in 2.0
+        //  Svlag should only be drawn when developer mode is enabled
         return;
     }
 
