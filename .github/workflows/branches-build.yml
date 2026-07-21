@@ -19,59 +19,40 @@ jobs:
    with:
       environment: 'testing'
 
-  # Initially create a release with 1 job
-  # so multiple files can be uploaded at the same time afterwards
-  create-release:
+  release:
     if: github.event_name != 'pull_request' && github.ref_name == 'main'
     runs-on: ubuntu-24.04
     environment: 'testing'
     needs: [build-all]
 
+    env:
+      RELEASE_PREFIX: ${{github.event.repository.name}}-dev
+
     steps:
+    - uses: actions/download-artifact@v4
+      with:
+        pattern: 'out-*'
+        path: ${{github.workspace}}/artifacts
+
+    # Zip every platform build; Windows installer artifacts ship as their .msi
+    - name: Package
+      working-directory: ${{github.workspace}}/artifacts
+      run: |
+        for dir in out-*; do
+          name="${{env.RELEASE_PREFIX}}-${dir#out-}"
+          if [ -f "$dir/Setup.msi" ]; then
+            cp "$dir/Setup.msi" "../${name%-installer}.msi"
+          else
+            (cd "$dir" && zip -9 -r "../../$name.zip" ./)
+          fi
+        done
+
     - name: Release
       uses: softprops/action-gh-release@v2.3.2
       with:
         prerelease: true
         name: '${{github.ref_name}}-${{github.sha}}'
         tag_name: 'dev'
-
-  deploy-release:
-    if: github.event_name != 'pull_request' && github.ref_name == 'main'
-    strategy:
-      matrix:
-        target_os: [
-          'linux-amd64',
-          'linux-i686',
-          'linux-arm64',
-          'linux-armhf',
-          'linux-powerpc',
-          'linux-ppc64',
-          'linux-ppc64el',
-          'windows-x64-pdb',
-          'windows-x86-pdb',
-          'windows-arm64-pdb',
-          'macos-multiarch-arm64-x86_64',
-        ]
-
-    runs-on: ubuntu-24.04
-    environment: 'testing'
-    needs: [create-release]
-
-    env:
-      RELEASE_NAME: ${{github.event.repository.name}}-dev-${{matrix.target_os}}
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: 'out-${{matrix.target_os}}'
-        path: ${{github.workspace}}/${{matrix.target_os}}
-
-    - name: Zip
-      working-directory: '${{github.workspace}}/${{matrix.target_os}}'
-      run: zip -9 -r "../${{env.RELEASE_NAME}}.zip" ./
-
-    - name: Release
-      uses: softprops/action-gh-release@v2.3.2
-      with:
-        tag_name: 'dev'
-        files: ${{github.workspace}}/${{env.RELEASE_NAME}}.zip
+        files: |
+          ${{github.workspace}}/*.zip
+          ${{github.workspace}}/*.msi

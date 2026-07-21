@@ -38,12 +38,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #    define SET_Alloc cgi.Malloc
 #    define SET_Free  cgi.Free
 
-#elif defined(REF_DLL)
-#    include "../renderercommon/tr_common.h"
-
-#    define SET_Alloc ri.Malloc
-#    define SET_Free  ri.Free
-
 #else
 #    include "../qcommon/qcommon.h"
 

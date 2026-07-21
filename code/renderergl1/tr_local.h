@@ -464,10 +464,8 @@ typedef struct {
 	int				numTexMods;
 	texModInfo_t	*texMods;
 
-	int				videoMapHandle;
 	qboolean		isLightmap;
 	qboolean		vertexLightmap;
-	qboolean		isVideoMap;
 	int				flags;
 } textureBundle_t;
 
@@ -1453,13 +1451,7 @@ extern cvar_t	*r_measureOverdraw;		// enables stencil buffer overdraw measuremen
 
 extern cvar_t	*r_lodscale;
 
-extern cvar_t	*r_primitives;			// "0" = based on compiled vertex array existance
-										// "1" = glDrawElemet tristrips
-										// "2" = glDrawElements triangles
-										// "-1" = no drawing
-
 extern cvar_t	*r_largemap;
-extern cvar_t	*r_inGameVideo;				// controls whether in game video should be draw
 extern cvar_t	*r_fastsky;				// controls whether sky should be cleared or drawn
 extern cvar_t	*r_fastdlights;
 extern cvar_t	*r_drawSun;				// controls drawing of sun quad

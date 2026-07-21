@@ -50,7 +50,6 @@ cvar_t	*r_skipBackEnd;
 cvar_t	*r_ignorehwgamma;
 cvar_t	*r_measureOverdraw;
 
-cvar_t	*r_inGameVideo;
 cvar_t	*r_fastsky;
 cvar_t	*r_fastdlights;
 cvar_t	*r_drawSun;
@@ -101,7 +100,6 @@ cvar_t	*r_stencilbits;
 cvar_t	*r_depthbits;
 cvar_t	*r_colorbits;
 cvar_t	*r_stereo;
-cvar_t	*r_primitives;
 cvar_t	*r_largemap;
 cvar_t	*r_textureDetails;
 cvar_t	*r_texturebits;
@@ -1193,30 +1191,7 @@ void BuildGfxInfo(char* dest, size_t destsize) {
 	}
 	PrintAndAppendString( dest, destsize, "CPU: %s\n", sys_cpustring->string );
 
-	// rendering primitives
-	{
-		int		primitives;
-
-		// default is to use triangles if compiled vertex arrays are present
-		PrintAndAppendString( dest, destsize, "rendering primitives: " );
-		primitives = r_primitives->integer;
-		if ( primitives == 0 ) {
-			if ( qglLockArraysEXT ) {
-				primitives = 2;
-			} else {
-				primitives = 1;
-			}
-		}
-		if ( primitives == -1 ) {
-			PrintAndAppendString( dest, destsize, "none\n" );
-		} else if ( primitives == 2 ) {
-			PrintAndAppendString( dest, destsize, "single glDrawElements\n" );
-		} else if ( primitives == 1 ) {
-			PrintAndAppendString( dest, destsize, "multiple glArrayElement\n" );
-		} else if ( primitives == 3 ) {
-			PrintAndAppendString( dest, destsize, "multiple glColor4ubv + glTexCoord2fv + glVertex3fv\n" );
-		}
-	}
+	PrintAndAppendString( dest, destsize, "rendering primitives: single glDrawElements\n" );
 
 	PrintAndAppendString( dest, destsize, "texturemode: %s\n", r_textureMode->string );
 	PrintAndAppendString( dest, destsize, "picmip: %d\n", r_picmip->integer );
@@ -1408,8 +1383,6 @@ void R_Register( void )
 	//	Added in OPM
 	//	 Make archivable
 	r_drawstaticdecals = ri.Cvar_Get("r_drawstaticdecals", "1", CVAR_ARCHIVE );
-
-	r_primitives = ri.Cvar_Get( "r_primitives", "0", CVAR_ARCHIVE );
 
 	r_ambientScale = ri.Cvar_Get( "r_ambientScale", "0.6", CVAR_CHEAT );
 	r_directedScale = ri.Cvar_Get( "r_directedScale", "1", CVAR_CHEAT );
@@ -1843,11 +1816,7 @@ GetRefAPI
 
 @@@@@@@@@@@@@@@@@@@@@
 */
-#ifdef USE_RENDERER_DLOPEN
-Q_EXPORT refexport_t* QDECL GetRefAPI ( int apiVersion, refimport_t *rimp ) {
-#else
 refexport_t *GetRefAPI ( int apiVersion, refimport_t *rimp ) {
-#endif
 
 	static refexport_t	re;
 

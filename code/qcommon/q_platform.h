@@ -164,32 +164,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #endif
 
-//============================================================== MAC OS X ===
-
-#if defined(MACOS_X) || defined(__APPLE_CC__)
-
-// make sure this is defined, just for sanity's sake...
-#ifndef MACOS_X
-#define MACOS_X
-#endif
-
-#define OS_STRING "macosx"
-#define ID_INLINE inline
-#define PATH_SEP '/'
-
-#ifdef __ppc__
-#  define ARCH_STRING "ppc"
-#  define Q3_BIG_ENDIAN
-#elif defined __i386__
-#  define ARCH_STRING "i386"
-#  define Q3_LITTLE_ENDIAN
-#endif
-
-#define DLL_EXT ".dylib"
-#define EXE_EXT ""
-
-#endif
-
 //================================================================= LINUX ===
 
 #ifdef __linux__
@@ -272,20 +246,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define ID_INLINE inline
 #define PATH_SEP '/'
 
-#ifdef __ppc__
-#  define ARCH_STRING "ppc"
-#  define Q3_BIG_ENDIAN
-#elif defined __i386__
-#  define ARCH_STRING "x86"
-#  define Q3_LITTLE_ENDIAN
-#elif defined __x86_64__
-#  undef idx64
-#  define idx64 1
-#  define ARCH_STRING "x86_64"
-#  define Q3_LITTLE_ENDIAN
-#elif defined __aarch64__
+#ifdef __aarch64__
 #  define ARCH_STRING "arm64"
 #  define Q3_LITTLE_ENDIAN
+#else
+#  error "macOS builds support Apple Silicon (arm64) only"
 #endif
 
 #define DLL_EXT ".dylib"

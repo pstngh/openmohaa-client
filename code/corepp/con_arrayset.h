@@ -38,12 +38,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #    define ARRAYSET_Alloc cgi.Malloc
 #    define ARRAYSET_Free  cgi.Free
 
-#elif defined(REF_DLL)
-#    include "../renderercommon/tr_common.h"
-
-#    define ARRAYSET_Alloc ri.Malloc
-#    define ARRAYSET_Free  ri.Free
-
 #else
 #    include "../qcommon/qcommon.h"
 

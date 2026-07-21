@@ -48,19 +48,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #    define CONTAINER_Alloc          cgi.Malloc
 #    define CONTAINER_Free           cgi.Free
 
-#elif defined(REF_DLL)
-
-#    include "../renderercommon/tr_common.h"
-
-//
-// client specific defines
-//
-#    define CONTAINER_Error          Com_Error
-#    define CONTAINER_DPrintf        Com_DPrintf
-#    define CONTAINER_WDPrintf(text) Com_DPrintf(text)
-#    define CONTAINER_Alloc          ri.Malloc
-#    define CONTAINER_Free           ri.Free
-
 #else
 
 #    include "../qcommon/qcommon.h"

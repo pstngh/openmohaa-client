@@ -9,17 +9,20 @@ endif()
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 include(identity)
 
+# macOS builds target Apple Silicon on current macOS only. These must be set
+# before project() so the toolchain checks use them; other platforms ignore them.
+set(CMAKE_OSX_ARCHITECTURES arm64 CACHE STRING "macOS architectures to build for")
+set(CMAKE_OSX_DEPLOYMENT_TARGET 15.0 CACHE STRING "Minimum macOS version")
+
 project(${PROJECT_NAME} VERSION ${PROJECT_VERSION} LANGUAGES C CXX)
 
-option(BUILD_SERVER "Build dedicated server" ON)
+option(BUILD_SERVER "Build dedicated server" OFF)
 option(BUILD_CLIENT "Build client" ON)
-option(BUILD_RENDERER_GL1 "Build GL1 renderer" ON)
-option(BUILD_RENDERER_GL2 "Build GL2 renderer" OFF)
+option(BUILD_LAUNCHER "Build legacy launchers" OFF)
 option(BUILD_GAME_LIBRARIES "Build game module libraries" ON)
 option(BUILD_GAME_QVMS "Build game module qvms" ON)
 option(BUILD_STANDALONE "Build binaries for standalone games" OFF)
 
-option(USE_RENDERER_DLOPEN "Dynamically load the renderer(s)" ON)
 option(USE_OPENAL "OpenAL audio" ON)
 option(USE_OPENAL_DLOPEN "Dynamically load OpenAL" ON)
 option(USE_HTTP "HTTP download support" ON)
@@ -77,11 +80,12 @@ include(version)
 
 include(server)
 include(renderer_gl1)
-include(renderer_gl2)
 include(client)
 include(basegame)
 #include(missionpack)
-include(launcher)
+if(BUILD_LAUNCHER)
+    include(launcher)
+endif()
 
 include(post_configure)
 #include(installer)

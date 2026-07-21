@@ -8,17 +8,21 @@ on:
         type: string
 
 jobs:
+  build-platform-macos:
+    uses: ./.github/workflows/shared-build-macos.yml
+    with:
+      environment: ${{inputs.environment}}
+
+  # Switched off: delete a job's `if: false` to build that platform again.
+  # The release workflows publish whatever artifacts the builds produced.
   build-platform-linux:
+    if: false
     uses: ./.github/workflows/shared-build-linux.yml
     with:
       environment: ${{inputs.environment}}
 
   build-platform-windows:
+    if: false
     uses: ./.github/workflows/shared-build-windows.yml
-    with:
-      environment: ${{inputs.environment}}
-
-  build-platform-macos:
-    uses: ./.github/workflows/shared-build-macos.yml
     with:
       environment: ${{inputs.environment}}

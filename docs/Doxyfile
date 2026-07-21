@@ -960,7 +960,6 @@ INPUT                  = docs/extras \
                          code/qcommon \
                          code/renderercommon \
                          code/renderergl1 \
-                         code/renderergl2 \
                          code/script \
                          code/sdl \
                          code/server \
