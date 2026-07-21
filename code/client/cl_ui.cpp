@@ -58,7 +58,6 @@ static Menu                *hud_health;
 static Menu                *hud_ammo;
 static Menu                *hud_compass;
 static Menu                *hud_boss;
-static Menu                *crosshairhud;
 static Menu                *missionLog;
 qboolean                    server_loading;
 static qboolean             server_loading_waiting;
@@ -109,7 +108,6 @@ cvar_t        *ui_consoleposition;
 cvar_t        *ui_inventoryfile;
 cvar_t        *ui_console;
 cvar_t        *ui_newvidmode;
-cvar_t        *ui_crosshair;
 cvar_t        *ui_compass;
 cvar_t        *ui_weaponsbar;
 cvar_t        *ui_weaponsbartime;
@@ -1971,9 +1969,6 @@ void UI_Update(void)
     // Hide the HUD when necessary
     if (!ui_hud || clc.state != CA_ACTIVE || view3d->LetterboxActive() || (currentMenu && currentMenu->isFullscreen())
         || server_loading || ((cl.snap.ps.pm_flags & PMF_NO_HUD) || (cl.snap.ps.pm_flags & PMF_INTERMISSION))) {
-        if (crosshairhud) {
-            crosshairhud->ForceHide();
-        }
         if (hud_weapons) {
             hud_weapons->ForceHide();
             ui_weapHudTime = 0;
@@ -1997,14 +1992,6 @@ void UI_Update(void)
 
         UI_HideHudList();
     } else {
-        if (crosshairhud) {
-            if (ui_crosshair->integer && cl.snap.ps.stats[STAT_CROSSHAIR]) {
-                crosshairhud->ForceShow();
-            } else {
-                crosshairhud->ForceHide();
-            }
-        }
-
         //
         // show and highlight all weapons that the player holds
         //
@@ -5151,9 +5138,6 @@ void CL_ShutdownUI(void)
         hudList.RemoveObjectAt(i);
     }
 
-    // Removed in 2.0
-    //  Crosshair is now handled by the cgame module
-    //crosshairhud       = menuManager.FindMenu("crosshair");
     hud_weapons        = menuManager.FindMenu("hud_weapons");
     hud_items          = menuManager.FindMenu("hud_items");
     hud_health         = menuManager.FindMenu("hud_health");
@@ -5184,9 +5168,6 @@ void CL_ShutdownUI(void)
     }
 
     // delete game hud
-    if (crosshairhud) {
-        crosshairhud = NULL;
-    }
     if (hud_weapons) {
         hud_weapons = NULL;
     }
@@ -5250,7 +5231,6 @@ void CL_InitializeUI(void)
     ui_gmbox           = Cvar_Get("ui_gmbox", "1", 1);
     ui_consoleposition = Cvar_Get("ui_consoleposition", "", 1);
     ui_console         = Cvar_Get("ui_console", "0", 1);
-    ui_crosshair       = Cvar_Get("ui_crosshair", "1", 1);
     ui_weaponsbar      = Cvar_Get("ui_weaponsbar", "1", 1);
     ui_weaponsbartime  = Cvar_Get("ui_weaponsbartime", "2500", 1);
     ui_itemsbar        = Cvar_Get("ui_itemsbar", "0", 1);
@@ -5442,10 +5422,6 @@ void CL_InitializeUI(void)
 
     uWinMan.CreateMenus();
 
-    // find the crosshair
-    // Removed in 2.0
-    //  Crosshair is now handled by the cgame module
-    //crosshairhud = menuManager.FindMenu("crosshair");
     // find weapons hud
     hud_weapons = menuManager.FindMenu("hud_weapons");
     // find items hud
@@ -5461,9 +5437,6 @@ void CL_InitializeUI(void)
     // find the connection menu
     ui_pConnectingMenu = menuManager.FindMenu("connecting");
 
-    if (crosshairhud) {
-        crosshairhud->ShowMenu(NULL);
-    }
     if (hud_health) {
         hud_health->ShowMenu(NULL);
     }
