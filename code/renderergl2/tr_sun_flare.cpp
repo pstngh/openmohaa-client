@@ -482,43 +482,12 @@ void lens_flare::Init(const char *which)
 
 static void R_DrawSunFlare()
 {
-    if (!s_sun.exists) {
-        return;
-    }
-    if (!sunFlare.initted) {
-        if (!s_sun.szFlareName[0]) {
-            return;
-        }
-        if (Q_stricmp(s_sun.szFlareName, "none")) {
-            sunFlare.Init(s_sun.szFlareName);
-        }
-    }
-
-    if (!sunFlare.initted) {
-        s_sun.szFlareName[0] = 0;
-        return;
-    }
-
-    if (!sunFlare.num_flares) {
-        return;
-    }
-
-    VectorMA(backEnd.viewParms.ori.origin, 16384, s_sun.flaredirection, sunFlare.trace_v);
-    VectorMA(backEnd.viewParms.ori.origin, 128, s_sun.flaredirection, sunFlare.v);
-
-    sunFlare.SunTry();
+    // Sun lens flare intentionally disabled in this client.
 }
 
 static void R_DrawSunFlareBlend()
 {
-    if (!s_sun.exists) {
-        return;
-    }
-    if (!sunFlare.initted) {
-        return;
-    }
-
-    sunFlare.ScreenBlend();
+    // Sun flare screen blend intentionally disabled.
 }
 
 void R_DrawLensFlares()
