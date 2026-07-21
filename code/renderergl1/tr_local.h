@@ -2345,8 +2345,6 @@ RENDERER BACK END COMMAND QUEUE
 typedef struct suninfo_s {
 	vec3_t color;
 	vec3_t direction;
-	vec3_t flaredirection;
-	char szFlareName[64];
 	qboolean exists;
 } suninfo_t;
 
