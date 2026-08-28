@@ -61,6 +61,7 @@ void        CL_BeginRegistration(void);
 void        CL_EndRegistration(void);
 float       UI_GetObjectivesTop(void);
 void        UI_GetHighResolutionScale(vec2_t scale);
+const vec2_t& UI_GetHudScale(void);
 
 //
 // menu

@@ -744,6 +744,10 @@ bool UIWidget::addChild(UIWidget *widget)
     }
 
     m_children.AddObject(widget);
+    if (m_flags & WF_HUD_SCALE) {
+        widget->SetHudScale(true);
+    }
+
     if (m_children.NumObjects() != 1) {
         UIWidget *child = m_children.ObjectAt(m_children.NumObjects() - 1);
         if ((child->m_flags & (WF_ALWAYS_TOP | WF_ALWAYS_BOTTOM))
@@ -1056,18 +1060,10 @@ void UIWidget::Motion(void)
 
 void UIWidget::AlignPosition(void)
 {
-    if (m_bVirtual) {
-        vec2_t vNewVirtualScale;
+    vec2_t vNewVirtualScale;
 
-        SetVirtualScale(vNewVirtualScale);
-
-        scaleFrameVirtualRes(m_frame, m_vVirtualScale, vNewVirtualScale);
-    } else if (uid.bHighResScaling) {
-        scaleFrameVirtualRes(m_frame, m_vVirtualScale, uid.scaleRes);
-    } else {
-        vec2_t vNewVirtualScale = {1.0, 1.0};
-        scaleFrameVirtualRes(m_frame, m_vVirtualScale, vNewVirtualScale);
-    }
+    GetLayoutScale(vNewVirtualScale);
+    scaleFrameVirtualRes(m_frame, m_vVirtualScale, vNewVirtualScale);
 
     if (m_flags & WF_STRETCH_VERTICAL) {
         m_frame.pos.y       = 0;
@@ -2143,20 +2139,12 @@ void UIWidget::ResetMotion(motion_t type)
 void UIWidget::Realign(void)
 {
     bool bScaled = false;
+    vec2_t vNewVirtualScale;
 
-    if (m_bVirtual) {
-        vec2_t vNewVirtualScale;
-
-        SetVirtualScale(vNewVirtualScale);
-
-        scaleFrameVirtualRes(m_frame, m_vVirtualScale, vNewVirtualScale);
+    GetLayoutScale(vNewVirtualScale);
+    bScaled = scaleFrameVirtualRes(m_frame, m_vVirtualScale, vNewVirtualScale);
+    if (m_bVirtual || uid.bHighResScaling) {
         bScaled = true;
-    } else if (uid.bHighResScaling) {
-        scaleFrameVirtualRes(m_frame, m_vVirtualScale, uid.scaleRes);
-        bScaled = true;
-    } else {
-        vec2_t vNewVirtualScale = {1.0, 1.0};
-        bScaled                 = scaleFrameVirtualRes(m_frame, m_vVirtualScale, vNewVirtualScale);
     }
 
     if (m_flags & WF_STRETCH_VERTICAL) {
@@ -2275,6 +2263,29 @@ bool UIWidget::getAlwaysOnBottom(void)
 bool UIWidget::getAlwaysOnTop(void)
 {
     return (m_flags & WF_ALWAYS_TOP) ? true : false;
+}
+
+void UIWidget::SetHudScale(bool enabled)
+{
+    if (enabled) {
+        if (!(m_flags & WF_HUD_SCALE)) {
+            if (m_bVirtual) {
+                m_flags |= WF_HUD_WAS_VIRTUAL;
+            }
+
+            // Reuse the existing draw-time virtual-scale selection so HUD
+            // rendering gains no additional branch or lookup.
+            m_bVirtual = true;
+            m_flags |= WF_HUD_SCALE;
+        }
+    } else if (m_flags & WF_HUD_SCALE) {
+        m_bVirtual = (m_flags & WF_HUD_WAS_VIRTUAL) != 0;
+        m_flags &= ~(WF_HUD_SCALE | WF_HUD_WAS_VIRTUAL);
+    }
+
+    for (int i = 1; i <= m_children.NumObjects(); i++) {
+        m_children.ObjectAt(i)->SetHudScale(enabled);
+    }
 }
 
 bool UIWidget::SendSignal(Event& event)
@@ -2429,6 +2440,24 @@ void UIWidget::SetScaleCvar(Event *ev)
     m_scaleCvar = uii.Cvar_Find(ev->GetString(1).c_str());
 }
 
+void UIWidget::GetLayoutScale(vec2_t out)
+{
+    const bool useVirtualScale =
+        m_bVirtual && (!(m_flags & WF_HUD_SCALE) || (m_flags & WF_HUD_WAS_VIRTUAL));
+
+    if (useVirtualScale) {
+        SetVirtualScale(out);
+    } else if (uid.bHighResScaling) {
+        VectorCopy2D(uid.scaleRes, out);
+    } else {
+        VectorSet2D(out, 1.0f, 1.0f);
+    }
+
+    if (m_flags & WF_HUD_SCALE) {
+        VectorScale2D(out, uid.hudScale, out);
+    }
+}
+
 void UIWidget::SetVirtualScale(vec2_t out)
 {
     if (m_scaleCvar) {
@@ -2484,18 +2513,10 @@ UIWidgetContainer::UIWidgetContainer()
 
 void UIWidgetContainer::AlignPosition(void)
 {
-    if (m_bVirtual) {
-        vec2_t vNewVirtualScale;
+    vec2_t vNewVirtualScale;
 
-        SetVirtualScale(vNewVirtualScale);
-
-        scaleFrameVirtualRes(m_frame, m_vVirtualScale, vNewVirtualScale);
-    } else if (uid.bHighResScaling) {
-        scaleFrameVirtualRes(m_frame, m_vVirtualScale, uid.scaleRes);
-    } else {
-        vec2_t vNewVirtualScale = {1.0, 1.0};
-        scaleFrameVirtualRes(m_frame, m_vVirtualScale, vNewVirtualScale);
-    }
+    GetLayoutScale(vNewVirtualScale);
+    scaleFrameVirtualRes(m_frame, m_vVirtualScale, vNewVirtualScale);
 
     if (m_align & WA_LEFT) {
         m_frame.pos.x = 0;

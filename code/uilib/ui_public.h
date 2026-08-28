@@ -194,6 +194,8 @@ typedef struct uiexport_s {
         qboolean     uiHasMouse;
         qboolean     bHighResScaling;
         vec2_t       scaleRes;
+        float        hudScale;
+        vec2_t       scaleHud;
     } uidef_t;
 
     extern uidef_t    uid;

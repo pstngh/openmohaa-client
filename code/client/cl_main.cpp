@@ -3364,12 +3364,12 @@ qboolean CL_SetVidMode( int mode ) {
 	qboolean ret;
 
 	ret = re.SetMode( mode, &cls.glconfig );
+	UI_ResolutionChange();
 
 	if( cge ) {
 		cge->CG_GetRendererConfig();
 	}
 
-	UI_ResolutionChange();
 	return ret;
 }
 

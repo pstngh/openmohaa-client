@@ -239,14 +239,14 @@ float UIGMBox::PrintWrap(UIFont *font, float x, float y, str text)
             break;
         }
 
-        font->Print(x, fY, p1, p2 - p1, getHighResScale());
+        font->Print(x, fY, p1, p2 - p1, UI_GetHudScale());
         p1 = p2 + 1;
         l -= n;
         fY += font->getHeight();
     }
 
     if (*p1) {
-        font->Print(x, fY, p1, l, getHighResScale());
+        font->Print(x, fY, p1, l, UI_GetHudScale());
         fY += font->getHeight();
     }
 
@@ -317,7 +317,7 @@ void UIGMBox::Print(const char *text)
 
 void UIGMBox::OnSizeChanged(Event *ev)
 {
-    s_gmboxWidth = m_frame.size.width;
+    s_gmboxWidth = m_frame.size.width / UI_GetHudScale()[0];
 }
 
 void UIGMBox::Create(const UIRect2D& rect, const UColor& fore, const UColor& back, float alpha)

@@ -242,14 +242,14 @@ float UIDMBox::PrintWrap(UIFont *font, float x, float y, str text)
             break;
         }
 
-        font->Print(x, fY, p1, p2 - p1, getHighResScale());
+        font->Print(x, fY, p1, p2 - p1, UI_GetHudScale());
         p1 = p2 + 1;
         l -= n;
         fY += font->getHeight();
     }
 
     if (*p1) {
-        font->Print(x, fY, p1, l, getHighResScale());
+        font->Print(x, fY, p1, l, UI_GetHudScale());
         fY += font->getHeight();
     }
 
@@ -332,7 +332,7 @@ void UIDMBox::Print(const char *text)
 
 void UIDMBox::OnSizeChanged(Event *ev)
 {
-    s_dmboxWidth = m_frame.size.width;
+    s_dmboxWidth = m_frame.size.width / UI_GetHudScale()[0];
 }
 
 void UIDMBox::Create(const UIRect2D& rect, const UColor& fore, const UColor& back, float alpha)

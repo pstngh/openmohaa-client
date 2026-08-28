@@ -52,6 +52,7 @@ public:
     UIWidget *GetNamedWidget(const char *pszName);
     void      Update(void);
     void      RealignWidgets(void);
+    void      SetHudScale(bool enabled);
     float     GetMaxMotionTime(void);
     void      ActivateMenu(void);
     qboolean  isFullscreen(void);

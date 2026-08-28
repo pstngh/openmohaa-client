@@ -59,6 +59,8 @@ public:
 #define WF_ALWAYS_TOP         (1 << 5)
 #define WF_NOPARENTADJUST     (1 << 6)
 #define WF_DONTLOCALIZE       (1 << 7)
+#define WF_HUD_SCALE          (1 << 8)
+#define WF_HUD_WAS_VIRTUAL    (1 << 9)
 
 // widget alignment flags
 #define WA_LEFT    (1 << 0)
@@ -188,6 +190,7 @@ protected:
     virtual void FrameInitialized(void);
     void         DrawTitle(float x, float y);
     void         Motion(void);
+    void         GetLayoutScale(vec2_t out);
     virtual void AlignPosition(void);
     void         Hide(Event *ev);
     void         Activate(Event *ev);
@@ -341,6 +344,7 @@ public:
     void               setAlwaysOnTop(bool b);
     bool               getAlwaysOnBottom(void);
     bool               getAlwaysOnTop(void);
+    void               SetHudScale(bool enabled);
     bool               SendSignal(Event& event);
     void               ShowCommand(Event *ev);
     void               HideCommand(Event *ev);

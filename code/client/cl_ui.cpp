@@ -120,6 +120,7 @@ cvar_t        *ui_gmboxspam;
 cvar_t        *ui_debugload;
 cvar_t        *sound_overlay;
 cvar_t        *ui_compass_scale;
+cvar_t        *ui_scale;
 
 static intro_stage_t intro_stage;
 static char          server_mapname[64];
@@ -160,6 +161,7 @@ void UI_MainMenuWidgetsUpdate(void);
 static UIRect2D getDefaultGMBoxRectangle(void);
 static UIRect2D getDefaultDMBoxRectangle(void);
 static void     UI_UpdateMessageBoxLayout(void);
+static void     UI_MarkHudMenu(Menu *menu, bool realign);
 
 class ConsoleHider : public Listener
 {
@@ -1222,7 +1224,7 @@ static void UI_UpdateMessageBoxLayout(void)
     float    gmY;
     float    gmHeight;
 
-    compassScale     = (float)uid.vidHeight / 480.0f * ui_compass_scale->value;
+    compassScale = (float)uid.vidHeight / 480.0f * ui_compass_scale->value * uid.hudScale;
     compassRectangle = UIRect2D(0, 0, 128.0f * compassScale, 128.0f * compassScale);
 
     if (hud_compass && hud_compass->GetContainerWidget()) {
@@ -1240,19 +1242,19 @@ static void UI_UpdateMessageBoxLayout(void)
         dmX = uid.vidWidth;
     }
 
-    dmWidth = uid.vidWidth - dmX - 192.0f * uid.scaleRes[0];
+    dmWidth = uid.vidWidth - dmX - 192.0f * uid.scaleHud[0];
     if (dmWidth < 0) {
         dmWidth = 0;
     }
 
-    dmHeight = 120.0f * uid.scaleRes[1];
+    dmHeight = 120.0f * uid.scaleHud[1];
     if (dmHeight > uid.vidHeight) {
         dmHeight = uid.vidHeight;
     }
 
     cachedDMBoxRectangle = UIRect2D(dmX, 0, dmWidth, dmHeight);
 
-    gmX = 20.0f * uid.scaleRes[0];
+    gmX = 20.0f * uid.scaleHud[0];
     if (gmX > uid.vidWidth) {
         gmX = uid.vidWidth;
     }
@@ -1267,7 +1269,7 @@ static void UI_UpdateMessageBoxLayout(void)
         gmY = uid.vidHeight;
     }
 
-    gmHeight = 128.0f * uid.scaleRes[1];
+    gmHeight = 128.0f * uid.scaleHud[1];
     if (gmHeight > uid.vidHeight - gmY) {
         gmHeight = uid.vidHeight - gmY;
     }
@@ -1280,6 +1282,23 @@ static void UI_UpdateMessageBoxLayout(void)
 
     if (dmbox) {
         dmbox->setFrame(cachedDMBoxRectangle);
+    }
+}
+
+/*
+====================
+UI_MarkHudMenu
+====================
+*/
+static void UI_MarkHudMenu(Menu *menu, bool realign)
+{
+    if (!menu) {
+        return;
+    }
+
+    menu->SetHudScale(true);
+    if (realign) {
+        menu->RealignWidgets();
     }
 }
 
@@ -1300,12 +1319,12 @@ UI_GetObjectivesTop
 */
 void UI_GetHighResolutionScale(vec2_t scale)
 {
-    if (uid.bHighResScaling) {
-        scale[0] = uid.scaleRes[0];
-        scale[1] = uid.scaleRes[1];
-    } else {
-        scale[0] = scale[1] = 1.0;
-    }
+    VectorCopy2D(uid.scaleHud, scale);
+}
+
+const vec2_t& UI_GetHudScale(void)
+{
+    return uid.scaleHud;
 }
 
 /*
@@ -2389,6 +2408,7 @@ void UI_Update(void)
             Menu *ammoMenu = menuManager.FindMenu(ammo);
             if (ammoMenu) {
                 if (ammoMenu != hud_ammo) {
+                    UI_MarkHudMenu(ammoMenu, true);
                     if (hud_ammo) {
                         hud_ammo->ForceHide();
                     }
@@ -2398,6 +2418,7 @@ void UI_Update(void)
                 ammoMenu = menuManager.FindMenu("hud_ammo_");
                 if (ammoMenu) {
                     if (ammoMenu != hud_ammo) {
+                        UI_MarkHudMenu(ammoMenu, true);
                         if (hud_ammo) {
                             hud_ammo->ForceHide();
                         }
@@ -3942,6 +3963,8 @@ void UI_ResolutionChange(void)
         // Older version doesn't have an adjustable compass, so assume 0.5 by default
         ui_compass_scale = Cvar_Get("ui_compass_scale", "0.55", CVAR_ARCHIVE | CVAR_LATCH);
     }
+    ui_scale = Cvar_Get("ui_scale", "1", CVAR_ARCHIVE | CVAR_LATCH);
+    Cvar_CheckRange(ui_scale, 0.5f, 2.0f, qfalse);
 
     CL_FillUIImports();
     CL_FillUIDef();
@@ -3961,6 +3984,10 @@ void UI_ResolutionChange(void)
         uid.scaleRes[1]     = 1;
         uid.bHighResScaling = qfalse;
     }
+
+    uid.hudScale    = Q_clamp_float(ui_scale->value, 0.5f, 2.0f);
+    uid.scaleHud[0] = uid.scaleRes[0] * uid.hudScale;
+    uid.scaleHud[1] = uid.scaleRes[1] * uid.hudScale;
 
     UI_UpdateMessageBoxLayout();
 
@@ -5035,6 +5062,8 @@ void UI_AddHud_f(void)
     Menu *hud = menuManager.FindMenu(Cmd_Argv(1));
 
     if (hud) {
+        UI_MarkHudMenu(hud, false);
+
         if (!hudList.ObjectInList(hud)) {
             hudList.AddObject(hud);
         }
@@ -5505,6 +5534,13 @@ void CL_InitializeUI(void)
     hud_compass = menuManager.FindMenu("hud_compass");
     // find the boss health hud
     hud_boss = menuManager.FindMenu("hud_boss");
+
+    UI_MarkHudMenu(hud_weapons, false);
+    UI_MarkHudMenu(hud_items, false);
+    UI_MarkHudMenu(hud_health, false);
+    UI_MarkHudMenu(hud_compass, false);
+    UI_MarkHudMenu(hud_boss, false);
+
     // find the stats screen
     missionLog = menuManager.FindMenu("StatsScreen");
     // find the connection menu

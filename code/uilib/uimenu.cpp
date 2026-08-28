@@ -263,6 +263,15 @@ void Menu::RealignWidgets(void)
     }
 }
 
+void Menu::SetHudScale(bool enabled)
+{
+    UIWidget *container = GetContainerWidget();
+
+    if (container) {
+        container->SetHudScale(enabled);
+    }
+}
+
 float Menu::GetMaxMotionTime(void)
 {
     int   i;
