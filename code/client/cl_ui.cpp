@@ -136,6 +136,11 @@ unsigned char        UIListCtrlItem[8];
 static const float maxWidthRes  = 1920;
 static const float maxHeightRes = 1080;
 
+// Message box layout, kept clear of the compass and rebuilt only when the
+// resolution changes
+static UIRect2D cachedGMBoxRectangle;
+static UIRect2D cachedDMBoxRectangle;
+
 inventory_t              client_inv;
 bind_t                   client_bind;
 static str               scoreboard_menuname;
@@ -150,8 +155,7 @@ void UI_MultiplayerMenuWidgetsUpdate(void);
 void UI_MultiplayerMainMenuWidgetsUpdate(void);
 void UI_MainMenuWidgetsUpdate(void);
 
-static UIRect2D getDefaultGMBoxRectangle(void);
-static UIRect2D getDefaultDMBoxRectangle(void);
+static void     UI_UpdateMessageBoxLayout(void);
 
 class ConsoleHider : public Listener
 {
@@ -1127,20 +1131,6 @@ static void DMConsoleCommandHandler(const char *txt)
 
 /*
 ====================
-getScreenWidth
-====================
-*/
-static float getScreenWidth()
-{
-    if (uid.bHighResScaling) {
-        return maxWidthRes;
-    } else {
-        return uid.vidWidth;
-    }
-}
-
-/*
-====================
 getNewConsole
 ====================
 */
@@ -1194,35 +1184,79 @@ UIFloatingDMConsole *getNewDMConsole()
 
 /*
 ====================
-getDefaultGMBoxRectangle
+UI_UpdateMessageBoxLayout
 ====================
 */
-static UIRect2D getDefaultGMBoxRectangle(void)
+static void UI_UpdateMessageBoxLayout(void)
 {
-    UIRect2D dmRect = getDefaultDMBoxRectangle();
-    float    height = uid.vidHeight * ui_compass_scale->value * 0.25f;
-    float    y      = dmRect.size.height + dmRect.pos.y;
+    UIRect2D compassRectangle;
+    float    compassScale;
+    float    dmX;
+    float    dmWidth;
+    float    dmHeight;
+    float    gmX;
+    float    gmY;
+    float    gmHeight;
 
-    if (height < y) {
-        height = y;
+    compassScale     = (float)uid.vidHeight / 480.0f * ui_compass_scale->value;
+    compassRectangle = UIRect2D(0, 0, 128.0f * compassScale, 128.0f * compassScale);
+
+    if (hud_compass && hud_compass->GetContainerWidget()) {
+        const UIRect2D frame = hud_compass->GetContainerWidget()->getFrame();
+
+        if (frame.size.width > 0 && frame.size.height > 0) {
+            compassRectangle = frame;
+        }
     }
 
-    return UIRect2D(20.0f, height, (getScreenWidth() - 20) * uid.scaleRes[0], 128.0f * uid.scaleRes[1]);
-}
+    dmX = compassRectangle.getMaxX();
+    if (dmX < 0) {
+        dmX = 0;
+    } else if (dmX > uid.vidWidth) {
+        dmX = uid.vidWidth;
+    }
 
-/*
-====================
-getDefaultDMBoxRectangle
-====================
-*/
-static UIRect2D getDefaultDMBoxRectangle(void)
-{
-    float width;
-    float screenWidth = getScreenWidth();
+    dmWidth = uid.vidWidth - dmX - 192.0f * uid.scaleRes[0];
+    if (dmWidth < 0) {
+        dmWidth = 0;
+    }
 
-    width = screenWidth * uid.scaleRes[0] * ui_compass_scale->value * 0.2f;
+    dmHeight = 120.0f * uid.scaleRes[1];
+    if (dmHeight > uid.vidHeight) {
+        dmHeight = uid.vidHeight;
+    }
 
-    return UIRect2D(width, 0, (screenWidth - (width + 192.0f)) * uid.scaleRes[0], 120.0f * uid.scaleRes[1]);
+    cachedDMBoxRectangle = UIRect2D(dmX, 0, dmWidth, dmHeight);
+
+    gmX = 20.0f * uid.scaleRes[0];
+    if (gmX > uid.vidWidth) {
+        gmX = uid.vidWidth;
+    }
+
+    gmY = compassRectangle.getMaxY();
+    if (gmY < cachedDMBoxRectangle.getMaxY()) {
+        gmY = cachedDMBoxRectangle.getMaxY();
+    }
+    if (gmY < 0) {
+        gmY = 0;
+    } else if (gmY > uid.vidHeight) {
+        gmY = uid.vidHeight;
+    }
+
+    gmHeight = 128.0f * uid.scaleRes[1];
+    if (gmHeight > uid.vidHeight - gmY) {
+        gmHeight = uid.vidHeight - gmY;
+    }
+
+    cachedGMBoxRectangle = UIRect2D(gmX, gmY, uid.vidWidth - gmX, gmHeight);
+
+    if (gmbox) {
+        gmbox->setFrame(cachedGMBoxRectangle);
+    }
+
+    if (dmbox) {
+        dmbox->setFrame(cachedDMBoxRectangle);
+    }
 }
 
 /*
@@ -1232,7 +1266,7 @@ UI_GetObjectivesTop
 */
 float UI_GetObjectivesTop(void)
 {
-    return getDefaultGMBoxRectangle().pos.y;
+    return cachedGMBoxRectangle.pos.y;
 }
 
 /*
@@ -3894,6 +3928,7 @@ void UI_ResolutionChange(void)
     }
 
     if (!uie.ResolutionChange) {
+        UI_UpdateMessageBoxLayout();
         return;
     }
 
@@ -3925,20 +3960,11 @@ void UI_ResolutionChange(void)
 
     uie.ResolutionChange();
     menuManager.RealignMenus();
+    UI_UpdateMessageBoxLayout();
 
     if (view3d) {
         frame = UIRect2D(0, 0, uid.vidWidth, uid.vidHeight);
         view3d->setFrame(frame);
-    }
-
-    if (gmbox) {
-        frame = getDefaultGMBoxRectangle();
-        gmbox->setFrame(frame);
-    }
-
-    if (dmbox) {
-        frame = getDefaultDMBoxRectangle();
-        dmbox->setFrame(frame);
     }
 }
 
@@ -4211,12 +4237,8 @@ void UI_CheckRestart(void)
 
     if (ui_gmbox->integer) {
         if (!gmbox) {
-            UIRect2D frame;
-
             gmbox = new UIGMBox;
-            frame = getDefaultGMBoxRectangle();
-
-            gmbox->Create(frame, UHudColor, UHudColor, 0);
+            gmbox->Create(cachedGMBoxRectangle, UHudColor, UHudColor, 0);
             gmbox->setAlwaysOnBottom(true);
             gmbox->setBorderStyle(border_none);
         }
@@ -4226,12 +4248,8 @@ void UI_CheckRestart(void)
     }
 
     if (!dmbox) {
-        UIRect2D frame;
-
         dmbox = new UIDMBox;
-        frame = getDefaultDMBoxRectangle();
-
-        dmbox->Create(frame, UHudColor, UHudColor, 0);
+        dmbox->Create(cachedDMBoxRectangle, UHudColor, UHudColor, 0);
         dmbox->setAlwaysOnBottom(true);
         dmbox->setBorderStyle(border_outline);
     }
@@ -5395,7 +5413,7 @@ void CL_InitializeUI(void)
     // Create the game message box
     if (ui_gmbox->integer && !gmbox) {
         gmbox = new UIGMBox;
-        gmbox->Create(getDefaultGMBoxRectangle(), UHudColor, UHudColor, 0.0);
+        gmbox->Create(cachedGMBoxRectangle, UHudColor, UHudColor, 0.0);
         gmbox->setAlwaysOnBottom(true);
         gmbox->setBorderStyle(border_none);
     }
@@ -5403,7 +5421,7 @@ void CL_InitializeUI(void)
     // Create the deathmatch message box
     if (!dmbox) {
         dmbox = new UIDMBox;
-        dmbox->Create(getDefaultDMBoxRectangle(), UHudColor, UHudColor, 0.0);
+        dmbox->Create(cachedDMBoxRectangle, UHudColor, UHudColor, 0.0);
         dmbox->setAlwaysOnBottom(true);
         dmbox->setBorderStyle(border_outline);
     }
@@ -5451,6 +5469,7 @@ void CL_InitializeUI(void)
 
     // realign menus
     menuManager.RealignMenus();
+    UI_UpdateMessageBoxLayout();
 
     // clear input
     CL_ClearButtons();
