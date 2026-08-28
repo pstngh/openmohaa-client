@@ -138,6 +138,11 @@ unsigned char        UIListCtrlItem[8];
 static const float maxWidthRes  = 1920;
 static const float maxHeightRes = 1080;
 
+// Fixed in OPM
+//  Cache message box layout so compass clearance has no per-frame cost.
+static UIRect2D cachedGMBoxRectangle;
+static UIRect2D cachedDMBoxRectangle;
+
 inventory_t              client_inv;
 bind_t                   client_bind;
 static str               scoreboard_menuname;
@@ -154,6 +159,7 @@ void UI_MainMenuWidgetsUpdate(void);
 
 static UIRect2D getDefaultGMBoxRectangle(void);
 static UIRect2D getDefaultDMBoxRectangle(void);
+static void     UI_UpdateMessageBoxLayout(void);
 
 class ConsoleHider : public Listener
 {
@@ -1129,20 +1135,6 @@ static void DMConsoleCommandHandler(const char *txt)
 
 /*
 ====================
-getScreenWidth
-====================
-*/
-static float getScreenWidth()
-{
-    if (uid.bHighResScaling) {
-        return maxWidthRes;
-    } else {
-        return uid.vidWidth;
-    }
-}
-
-/*
-====================
 getNewConsole
 ====================
 */
@@ -1201,15 +1193,7 @@ getDefaultGMBoxRectangle
 */
 static UIRect2D getDefaultGMBoxRectangle(void)
 {
-    UIRect2D dmRect = getDefaultDMBoxRectangle();
-    float    height = uid.vidHeight * ui_compass_scale->value * 0.25f;
-    float    y      = dmRect.size.height + dmRect.pos.y;
-
-    if (height < y) {
-        height = y;
-    }
-
-    return UIRect2D(20.0f, height, (getScreenWidth() - 20) * uid.scaleRes[0], 128.0f * uid.scaleRes[1]);
+    return cachedGMBoxRectangle;
 }
 
 /*
@@ -1219,12 +1203,84 @@ getDefaultDMBoxRectangle
 */
 static UIRect2D getDefaultDMBoxRectangle(void)
 {
-    float width;
-    float screenWidth = getScreenWidth();
+    return cachedDMBoxRectangle;
+}
 
-    width = screenWidth * uid.scaleRes[0] * ui_compass_scale->value * 0.2f;
+/*
+====================
+UI_UpdateMessageBoxLayout
+====================
+*/
+static void UI_UpdateMessageBoxLayout(void)
+{
+    UIRect2D compassRectangle;
+    float    compassScale;
+    float    dmX;
+    float    dmWidth;
+    float    dmHeight;
+    float    gmX;
+    float    gmY;
+    float    gmHeight;
 
-    return UIRect2D(width, 0, (screenWidth - (width + 192.0f)) * uid.scaleRes[0], 120.0f * uid.scaleRes[1]);
+    compassScale     = (float)uid.vidHeight / 480.0f * ui_compass_scale->value;
+    compassRectangle = UIRect2D(0, 0, 128.0f * compassScale, 128.0f * compassScale);
+
+    if (hud_compass && hud_compass->GetContainerWidget()) {
+        const UIRect2D frame = hud_compass->GetContainerWidget()->getFrame();
+
+        if (frame.size.width > 0 && frame.size.height > 0) {
+            compassRectangle = frame;
+        }
+    }
+
+    dmX = compassRectangle.getMaxX();
+    if (dmX < 0) {
+        dmX = 0;
+    } else if (dmX > uid.vidWidth) {
+        dmX = uid.vidWidth;
+    }
+
+    dmWidth = uid.vidWidth - dmX - 192.0f * uid.scaleRes[0];
+    if (dmWidth < 0) {
+        dmWidth = 0;
+    }
+
+    dmHeight = 120.0f * uid.scaleRes[1];
+    if (dmHeight > uid.vidHeight) {
+        dmHeight = uid.vidHeight;
+    }
+
+    cachedDMBoxRectangle = UIRect2D(dmX, 0, dmWidth, dmHeight);
+
+    gmX = 20.0f * uid.scaleRes[0];
+    if (gmX > uid.vidWidth) {
+        gmX = uid.vidWidth;
+    }
+
+    gmY = compassRectangle.getMaxY();
+    if (gmY < cachedDMBoxRectangle.getMaxY()) {
+        gmY = cachedDMBoxRectangle.getMaxY();
+    }
+    if (gmY < 0) {
+        gmY = 0;
+    } else if (gmY > uid.vidHeight) {
+        gmY = uid.vidHeight;
+    }
+
+    gmHeight = 128.0f * uid.scaleRes[1];
+    if (gmHeight > uid.vidHeight - gmY) {
+        gmHeight = uid.vidHeight - gmY;
+    }
+
+    cachedGMBoxRectangle = UIRect2D(gmX, gmY, uid.vidWidth - gmX, gmHeight);
+
+    if (gmbox) {
+        gmbox->setFrame(cachedGMBoxRectangle);
+    }
+
+    if (dmbox) {
+        dmbox->setFrame(cachedDMBoxRectangle);
+    }
 }
 
 /*
@@ -1234,7 +1290,7 @@ UI_GetObjectivesTop
 */
 float UI_GetObjectivesTop(void)
 {
-    return getDefaultGMBoxRectangle().pos.y;
+    return cachedGMBoxRectangle.pos.y;
 }
 
 /*
@@ -3906,6 +3962,8 @@ void UI_ResolutionChange(void)
         uid.bHighResScaling = qfalse;
     }
 
+    UI_UpdateMessageBoxLayout();
+
     if (!uie.ResolutionChange) {
         return;
     }
@@ -3938,20 +3996,11 @@ void UI_ResolutionChange(void)
 
     uie.ResolutionChange();
     menuManager.RealignMenus();
+    UI_UpdateMessageBoxLayout();
 
     if (view3d) {
         frame = UIRect2D(0, 0, uid.vidWidth, uid.vidHeight);
         view3d->setFrame(frame);
-    }
-
-    if (gmbox) {
-        frame = getDefaultGMBoxRectangle();
-        gmbox->setFrame(frame);
-    }
-
-    if (dmbox) {
-        frame = getDefaultDMBoxRectangle();
-        dmbox->setFrame(frame);
     }
 }
 
@@ -5478,6 +5527,7 @@ void CL_InitializeUI(void)
 
     // realign menus
     menuManager.RealignMenus();
+    UI_UpdateMessageBoxLayout();
 
     // clear input
     CL_ClearButtons();
