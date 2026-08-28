@@ -114,6 +114,30 @@ enabled. `cg_crosshair_overlay` is independent of the stock `ui_crosshair` and
 availability and is hidden while holstered, zoomed, dead, spectating, viewing a
 camera, or when gameplay suppresses the HUD.
 
+### Client movement telemetry
+
+`cl_movelog 1` starts a passive, client-local movement recording on any server.
+It never changes commands or sends telemetry over the network. Set
+`cl_movelog 0` to flush and close the recording. The optional
+`cl_movelog_session <label>` cvar adds a sanitized label to its filenames.
+
+Every recording creates three uniquely named files under `client_telemetry` in
+the active game's home directory:
+
+- `*_frames.csv`: 50 Hz predicted movement, view, weapon, target, and collision
+  state.
+- `*_inputs.csv`: every discrete movement and button transition, including
+  short strafe and lean taps between state samples.
+- `*_meta.txt`: the map, schema, trace ranges, and interpretation notes.
+
+No recording work, traces, or file I/O occurs while `cl_movelog` is `0`. While
+recording, full-player-hull traces measure 256-unit clearance in eight
+directions, along the movement command, and along actual velocity. Crosshair
+and enemy fields describe direct or aim-aligned visible targets with an
+explicit confidence value. The files deliberately omit names, chat, and
+network addresses; enemy data is limited to entities already visible to the
+client, and local positions are predicted rather than server-authoritative.
+
 ### Chat
 
 Chat messages are logged to console and in the logfile by default, without requiring to set the `developer` variable.
