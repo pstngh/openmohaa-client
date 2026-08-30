@@ -53,3 +53,11 @@ jobs:
       run: |
         cd "${{github.workspace}}/build"
         ctest -C Debug --output-on-failure
+
+    - name: Test Python behavior contracts
+      working-directory: ${{github.workspace}}/source
+      run: |
+        find code -path '*/tests/test_*.py' -print | sort |
+          while IFS= read -r test_file; do
+            python3 "$test_file"
+          done
