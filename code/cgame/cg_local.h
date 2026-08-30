@@ -176,6 +176,14 @@ extern "C" {
         int  flags;
     } cobjective_t;
 
+    typedef enum {
+        STOPWATCH_HUD_UNINITIALIZED = 0,
+        STOPWATCH_HUD_HIDDEN,
+        STOPWATCH_HUD_NORMAL,
+        STOPWATCH_HUD_FUSE,
+        STOPWATCH_HUD_FUSE_WET
+    } stopwatchHudState_t;
+
 #define MAX_RAIN_SHADERS 16
 
     typedef struct crain_s {
@@ -307,7 +315,8 @@ extern "C" {
         int  centerPrintLines;
 
         // gameplay
-        int matchStartTime;
+        int                 matchStartTime;
+        stopwatchHudState_t stopwatchHudState;
 
         // development tool
         refEntity_t testModelEntity;
@@ -636,7 +645,9 @@ extern "C" {
     void CG_RefreshHudDrawElements();
     void CG_HudDrawElements();
     void CG_InitializeObjectives();
+    void CG_RefreshObjectives();
     void CG_DrawObjectives();
+    void CG_ClearStopwatchHud();
     void CG_Draw2D(void);
 
     //

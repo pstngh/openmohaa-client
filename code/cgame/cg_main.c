@@ -652,6 +652,9 @@ void CG_GameStateReceived(void)
     // get the gamestate from the client system
     cgi.GetGameState(&cgs.gameState);
 
+    // Clear objective state before the initial configstring pass repopulates it.
+    CG_InitializeObjectives();
+
     // check version
     s = CG_ConfigString(CS_GAME_VERSION);
     if (strcmp(s, GAME_VERSION)) {
@@ -676,8 +679,6 @@ void CG_GameStateReceived(void)
     CG_PrepRefresh();
 
     CG_InitializeSpecialEffectsManager();
-
-    CG_InitializeObjectives();
 }
 
 /*
@@ -709,6 +710,7 @@ void CG_ServerRestarted(void)
     CG_ResetVSSSources();
     // Reset objectives
     CG_InitializeObjectives();
+    CG_RefreshObjectives();
 }
 
 /*
@@ -791,6 +793,7 @@ Called before every level change or subsystem restart
 */
 void CG_Shutdown(void)
 {
+    CG_ClearStopwatchHud();
     CG_ClientTelemetryShutdown();
     L_ShutdownEvents();
     // Shutdown radar

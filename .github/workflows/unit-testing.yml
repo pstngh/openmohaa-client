@@ -53,3 +53,7 @@ jobs:
       run: |
         cd "${{github.workspace}}/build"
         ctest -C Debug --output-on-failure
+
+    - name: Test HUD frame behavior
+      working-directory: ${{github.workspace}}/source
+      run: python3 code/cgame/tests/test_hud_frame_work.py
