@@ -641,6 +641,9 @@ void CG_GameStateReceived(void)
     // get the gamestate from the client system
     cgi.GetGameState(&cgs.gameState);
 
+    // Clear objective state before the initial configstring pass repopulates it.
+    CG_InitializeObjectives();
+
     // check version
     s = CG_ConfigString(CS_GAME_VERSION);
     if (strcmp(s, GAME_VERSION)) {
@@ -665,8 +668,6 @@ void CG_GameStateReceived(void)
     CG_PrepRefresh();
 
     CG_InitializeSpecialEffectsManager();
-
-    CG_InitializeObjectives();
 }
 
 /*
@@ -698,6 +699,7 @@ void CG_ServerRestarted(void)
     CG_ResetVSSSources();
     // Reset objectives
     CG_InitializeObjectives();
+    CG_RefreshObjectives();
 }
 
 /*
@@ -779,6 +781,9 @@ Called before every level change or subsystem restart
 */
 void CG_Shutdown(void)
 {
+    // Don't execute console commands here: this runs inside commands such as
+    // connect and demo, which read their arguments afterwards. The next cgame
+    // clears any stopwatch HUD left behind on its first frame.
     L_ShutdownEvents();
     // Shutdown radar
     cgi.CL_InitRadar(NULL, NULL, -1);
