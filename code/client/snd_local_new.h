@@ -94,9 +94,6 @@ typedef struct {
 typedef struct {
     char name[64];
 
-    int loop_start;
-    int loop_end;
-
     int   max_number_playing;
     float max_factor;
 } sfx_info_t;

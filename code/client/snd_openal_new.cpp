@@ -1114,30 +1114,54 @@ void S_UnpauseSound()
 
 /*
 ==============
-S_OPENAL_ShouldPlay
+S_OPENAL_FindVoiceToReplace
+
+Returns qfalse when pSfx already plays at its limit and none of those voices
+may be replaced. Otherwise *ppReplacement is the voice to end before the new
+one starts, or NULL while pSfx is under its limit.
 ==============
 */
-static qboolean S_OPENAL_ShouldPlay(sfx_t *pSfx)
+static qboolean S_OPENAL_FindVoiceToReplace(sfx_t *pSfx, int iEntNum, int iEntChannel, openal_channel **ppReplacement)
 {
-    if (sfx_infos[pSfx->sfx_info_index].max_number_playing <= 0) {
+    const int iMaxPlaying = sfx_infos[pSfx->sfx_info_index].max_number_playing;
+
+    *ppReplacement = NULL;
+    if (iMaxPlaying <= 0) {
         return qtrue;
     }
 
-    int iRemainingTimesToPlay;
-    int i;
+    const int       iRealEntNum               = iEntNum & ~S_FLAG_DO_CALLBACK;
+    int             iRemainingTimesToPlay     = iMaxPlaying;
+    openal_channel *pReplacement              = NULL;
+    bool            bReplacementMatchesSource = false;
 
-    iRemainingTimesToPlay = sfx_infos[pSfx->sfx_info_index].max_number_playing;
-
-    for (i = 0; i < MAX_SOUNDSYSTEM_POSITION_CHANNELS; i++) {
+    for (int i = 0; i < MAX_SOUNDSYSTEM_POSITION_CHANNELS; i++) {
         openal_channel *pChannel = openal.channel[i];
         if (!pChannel) {
             continue;
         }
 
         if (pChannel->pSfx == pSfx && pChannel->is_playing()) {
+            const bool bCanReplace =
+                (pChannel->iEntNum != s_iListenerNumber || iRealEntNum == s_iListenerNumber)
+                && pChannel->iEntChannel <= iEntChannel;
+            const bool bMatchesSource =
+                iEntChannel && pChannel->iEntNum == iRealEntNum && pChannel->iEntChannel == iEntChannel;
+
+            if (bCanReplace
+                && (!pReplacement || (bMatchesSource && !bReplacementMatchesSource)
+                    || (bMatchesSource == bReplacementMatchesSource
+                        && (pChannel->iEntChannel < pReplacement->iEntChannel
+                            || (pChannel->iEntChannel == pReplacement->iEntChannel
+                                && pChannel->iStartTime < pReplacement->iStartTime))))) {
+                pReplacement              = pChannel;
+                bReplacementMatchesSource = bMatchesSource;
+            }
+
             iRemainingTimesToPlay--;
             if (!iRemainingTimesToPlay) {
-                return qfalse;
+                *ppReplacement = pReplacement;
+                return pReplacement ? qtrue : qfalse;
             }
         }
     }
@@ -1472,8 +1496,8 @@ void S_OPENAL_StartSound(
 {
     int             iChannel;
     openal_channel *pChannel;
-    sfx_info_t     *pSfxInfo;
     sfx_t          *pSfx;
+    openal_channel *pReplacement;
     ALint           state;
     bool            bOnlyUpdate;
     bool            bSupportWaitTillSoundDone;
@@ -1484,13 +1508,18 @@ void S_OPENAL_StartSound(
         pSfx->iFlags |= SFX_FLAG_STREAMED;
     }
 
-    if (!S_OPENAL_ShouldPlay(pSfx)) {
+    if (!S_OPENAL_FindVoiceToReplace(pSfx, iEntNum, iEntChannel, &pReplacement)) {
         Com_DPrintf("OpenAL: ^~^~^ Not playing sound '%s'\n", pSfx->name);
         return;
     }
 
     if ((pSfx->iFlags & (SFX_FLAG_NO_OFFSET) || pSfx->iFlags & (SFX_FLAG_STREAMED | SFX_FLAG_MP3))
         || iEntChannel == CHAN_MENU || iEntChannel == CHAN_LOCAL) {
+        // 2D sounds always start, so the voice they replace can make room for them now
+        if (pReplacement) {
+            pReplacement->end_sample();
+        }
+
         S_OPENAL_Start2DSound(vOrigin, iEntNum, iEntChannel, pSfx, fVolume, fMinDist, fPitch, fMaxDist);
         return;
     }
@@ -1498,10 +1527,26 @@ void S_OPENAL_StartSound(
     bSupportWaitTillSoundDone = (iEntNum & S_FLAG_DO_CALLBACK) != 0;
     iEntNum &= ~S_FLAG_DO_CALLBACK;
 
-    pSfxInfo = &sfx_infos[pSfx->sfx_info_index];
     if (pSfx->iFlags & SFX_FLAG_STREAMED) {
         Com_DPrintf("OpenAL: 3D sounds not supported - couldn't play '%s'\n", pSfx->name);
         return;
+    }
+
+    if (fMinDist < 0.0) {
+        fMinDist = 200.0;
+        fMaxDist = 12800.0;
+    }
+
+    if (pReplacement) {
+        // At the limit, only a sound within hearing range may replace a voice: one set up out
+        // of range never starts, so it would silence a voice for nothing. Ending the voice
+        // before picking a channel lets the new sound take that voice's channel over.
+        if (!S_OPENAL_ShouldStart(vOrigin ? vOrigin : vec3_origin, fMinDist, fMaxDist)) {
+            Com_DPrintf("OpenAL: ^~^~^ Not playing sound '%s'\n", pSfx->name);
+            return;
+        }
+
+        pReplacement->end_sample();
     }
 
     iChannel = S_OPENAL_PickChannel3D(iEntNum, iEntChannel);
@@ -1537,10 +1582,6 @@ void S_OPENAL_StartSound(
         }
     }
 
-    if (fMinDist < 0.0) {
-        fMinDist = 200.0;
-        fMaxDist = 12800.0;
-    }
     pChannel->fMinDist = fMinDist;
     pChannel->fMaxDist = fMaxDist;
 
@@ -1606,17 +1647,7 @@ void S_OPENAL_StartSound(
         pChannel->set_position(pChannel->vOrigin[0], pChannel->vOrigin[1], pChannel->vOrigin[2]);
     }
 
-    if (pSfxInfo->loop_start != -1) {
-        pChannel->set_sample_loop_block(pSfxInfo->loop_start, pSfxInfo->loop_end);
-        pChannel->set_sample_loop_count(0);
-
-        pChannel->iFlags |= CHANNEL_FLAG_LOOPING;
-        if (s_show_sounds->integer) {
-            Com_DPrintf("OpenAL: loopblock - %d to %d\n", pSfxInfo->loop_start, pSfxInfo->loop_end);
-        }
-    } else {
-        pChannel->set_sample_loop_count(1);
-    }
+    pChannel->set_sample_loop_count(1);
 
     if (!bOnlyUpdate && S_OPENAL_ShouldStart(pChannel->vOrigin, pChannel->fMinDist, pChannel->fMaxDist)) {
         // Fixed in OPM
@@ -2726,22 +2757,7 @@ S_StartSoundFromBase(channelbasesavegame_t *pBase, openal_channel *pChannel, sfx
 
     pChannel->iBaseRate = pChannel->sample_playback_rate();
 
-    if (sfx_infos[pSfx->sfx_info_index].loop_start != -1) {
-        pChannel->set_sample_loop_block(
-            sfx_infos[pSfx->sfx_info_index].loop_start, sfx_infos[pSfx->sfx_info_index].loop_end
-        );
-        pChannel->set_sample_loop_count(1);
-        pChannel->iFlags |= CHANNEL_FLAG_LOOPING;
-        if (s_show_sounds->integer > 0) {
-            Com_DPrintf(
-                "OpenAL: loopblock - %d to %d\n",
-                sfx_infos[pSfx->sfx_info_index].loop_start,
-                sfx_infos[pSfx->sfx_info_index].loop_end
-            );
-        }
-    } else {
-        pChannel->set_sample_loop_count(1);
-    }
+    pChannel->set_sample_loop_count(1);
 
     pChannel->set_gain(pChannel->fVolume);
     pChannel->set_sample_offset(pBase->iOffset);
@@ -3394,17 +3410,6 @@ void openal_channel::set_sample_loop_count(S32 count)
 
 /*
 ==============
-openal_channel::set_sample_loop_block
-==============
-*/
-void openal_channel::set_sample_loop_block(S32 start_offset, S32 end_offset)
-{
-    // FIXME: unimplemented
-    STUB_DESC("sample_loop_block");
-}
-
-/*
-==============
 openal_channel::sample_status
 ==============
 */
@@ -3946,7 +3951,6 @@ qboolean MUSIC_PlaySong(const char *alias)
     int                          channel_to_play_on;
     int                          fading_song;
     openal_channel_two_d_stream *song_channel;
-    unsigned int                 loop_start;
     int                          rate;
 
     fading_song = 0;
@@ -3999,7 +4003,6 @@ qboolean MUSIC_PlaySong(const char *alias)
 
     if (song->flags & 1) {
         song_channel->set_sample_loop_count(0);
-        song_channel->set_sample_loop_block(rate * 0.063f, -1);
     } else {
         song_channel->set_sample_loop_count(1);
     }
