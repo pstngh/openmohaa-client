@@ -97,6 +97,17 @@ beam_t *cl_active_beams;
 
 static int seed = 100;
 
+static qhandle_t CG_GetCachedBeamShader(beam_t *beam, const char *name)
+{
+    const char *normalizedName = name ? name : "";
+
+    if (Q_stricmp(cgi.R_GetShaderName(beam->beamshader), normalizedName)) {
+        beam->beamshader = cgi.R_RegisterShader(normalizedName);
+    }
+
+    return beam->beamshader;
+}
+
 // Recursive beam builder - I don't use it anymore
 /*
 void CG_BuildRenderBeam_r
@@ -569,7 +580,6 @@ void CG_MultiBeam(centity_t *cent)
     Vector         prevpt, currpt;
     entityState_t *s1;
     Vector         p1, p2, p3, p4, v1, v2, up, currpt1, currpt2, prevpt1, prevpt2;
-    const char    *beamshadername;
     int            beamshader;
     byte           modulate[4];
     qboolean       prevptvalid = false;
@@ -586,9 +596,7 @@ void CG_MultiBeam(centity_t *cent)
     CG_MultiBeamSubdivide(cent);
 
     // This is the top of the beam ent list, build up a renderer beam based on all the children
-    beamshadername = CG_ConfigString(CS_IMAGES + s1->surfaces[1]); // index for shader configstring
-    beamshader     = cgi.R_RegisterShader(beamshadername);
-    //beamshader     = cgi.R_RegisterShader( "<default>" );
+    beamshader = CG_GetImageShader(s1->surfaces[1]);
     for (i = 0; i < 4; i++) {
         modulate[i] = cent->color[i] * 255;
     }
@@ -1225,7 +1233,7 @@ void CG_CreateBeam(
                     b->min_offset      = min_offset;
                     b->max_offset      = max_offset;
                     b->alpha           = alpha;
-                    b->beamshader      = cgi.R_RegisterShader(beamshadername);
+                    b->beamshader      = CG_GetCachedBeamShader(b, beamshadername);
                     b->numSubdivisions = numSubdivisions;
                     b->delay           = delay;
                     b->life            = life;
@@ -1277,7 +1285,7 @@ void CG_CreateBeam(
         b->overlap         = overlap;
         b->min_offset      = min_offset;
         b->max_offset      = max_offset;
-        b->beamshader      = cgi.R_RegisterShader(beamshadername);
+        b->beamshader      = CG_GetCachedBeamShader(b, beamshadername);
         b->numSubdivisions = numSubdivisions;
         b->delay           = delay;
         b->update_time     = 0; //cg.time + delay;
@@ -1365,7 +1373,6 @@ void CG_Rope(centity_t *cent)
     entityState_t *s1;
     Vector         top, mid, bottom, up, v1, v2;
     Vector         currpt1, currpt2, prevpt1, prevpt2;
-    const char    *beamshadername;
     int            beamshader;
     byte           modulate[4];
     float          picH, length, endT;
@@ -1380,8 +1387,7 @@ void CG_Rope(centity_t *cent)
     bottom.z -= s1->alpha;
 
     // This is the top of the beam ent list, build up a renderer beam based on all the children
-    beamshadername = CG_ConfigString(CS_IMAGES + s1->surfaces[0]); // index for shader configstring
-    beamshader     = cgi.R_RegisterShader(beamshadername);
+    beamshader = CG_GetImageShader(s1->surfaces[0]);
 
     picH = cgi.R_GetShaderHeight(beamshader);
 
