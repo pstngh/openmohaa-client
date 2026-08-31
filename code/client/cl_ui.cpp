@@ -130,6 +130,9 @@ static float         scoreboard_y;
 static float         scoreboard_w;
 static float         scoreboard_h;
 static qboolean      scoreboard_header;
+static qboolean      scoreboard_requested;
+static qboolean      scoreboard_visibility_dirty = qtrue;
+static qboolean      scoreboard_menu_was_active;
 cvar_t              *cl_playintro;
 cvar_t              *cl_movieaudio;
 
@@ -160,6 +163,7 @@ void UI_MainMenuWidgetsUpdate(void);
 static UIRect2D getDefaultGMBoxRectangle(void);
 static UIRect2D getDefaultDMBoxRectangle(void);
 static void     UI_UpdateMessageBoxLayout(void);
+static void     UI_UpdateScoreboardVisibility(void);
 
 class ConsoleHider : public Listener
 {
@@ -1914,6 +1918,7 @@ void UI_Update(void)
             }
         }
 
+        UI_UpdateScoreboardVisibility();
         return;
     }
 
@@ -2438,16 +2443,7 @@ void UI_Update(void)
         UI_ShowHudList();
     }
 
-    //
-    // show the scoreboard
-    //
-    if (scoreboard_menu) {
-        if (scoreboardlist && scoreboardlist->IsVisible()) {
-            scoreboard_menu->ForceShow();
-        } else {
-            scoreboard_menu->ForceHide();
-        }
-    }
+    UI_UpdateScoreboardVisibility();
 
     uWinMan.UpdateViews();
 }
@@ -4420,6 +4416,40 @@ static int  statsRequestTime;
 static bool intermission_stats_up;
 static bool isMissionLogVisible;
 
+static void UI_UpdateScoreboardVisibility(void)
+{
+    qboolean menuActive = UI_MenuActive();
+    qboolean show;
+
+    if (!scoreboard_visibility_dirty && scoreboard_menu_was_active == menuActive) {
+        return;
+    }
+
+    scoreboard_visibility_dirty = qfalse;
+    scoreboard_menu_was_active  = menuActive;
+    show                        = scoreboard_requested && !menuActive;
+
+    if (scoreboard_menuname.length()) {
+        scoreboard_menu = menuManager.FindMenu(scoreboard_menuname);
+
+        if (scoreboard_menu) {
+            if (show) {
+                UIWidget *widget = scoreboard_menu->GetContainerWidget();
+                if (widget) {
+                    widget->BringToFrontPropogated();
+                }
+                scoreboard_menu->ForceShow();
+            } else {
+                scoreboard_menu->ForceHide();
+            }
+        }
+    }
+
+    if (scoreboardlist && scoreboardlist->IsVisible() != show) {
+        scoreboardlist->setShow(show);
+    }
+}
+
 /*
 ====================
 UI_ShowScoreboard_f
@@ -4435,35 +4465,9 @@ void UI_ShowScoreboard_f(const char *pszMenuName)
         scoreboard_menuname = pszMenuName;
     }
 
-    if (UI_MenuActive()) {
-        if (scoreboard_menuname.length()) {
-            scoreboard_menu = menuManager.FindMenu(scoreboard_menuname);
-
-            if (scoreboard_menu) {
-                scoreboard_menu->ForceHide();
-            }
-        }
-
-        if (scoreboardlist && scoreboardlist->IsVisible()) {
-            scoreboardlist->setShow(false);
-        }
-    } else {
-        if (scoreboard_menuname.length()) {
-            scoreboard_menu = menuManager.FindMenu(scoreboard_menuname);
-
-            if (scoreboard_menu) {
-                UIWidget *widget = scoreboard_menu->GetContainerWidget();
-                if (widget) {
-                    widget->BringToFrontPropogated();
-                }
-                scoreboard_menu->ForceShow();
-            }
-        }
-
-        if (scoreboardlist && !scoreboardlist->IsVisible()) {
-            scoreboardlist->setShow(true);
-        }
-    }
+    scoreboard_requested        = qtrue;
+    scoreboard_visibility_dirty = qtrue;
+    UI_UpdateScoreboardVisibility();
 }
 
 /*
@@ -4473,16 +4477,9 @@ UI_HideScoreboard_f
 */
 void UI_HideScoreboard_f(void)
 {
-    if (scoreboardlist) {
-        scoreboardlist->setShow(false);
-    }
-
-    if (scoreboard_menuname.length()) {
-        // Fixed in 2.30 (scoreboard_menu check)
-        if (scoreboard_menu) {
-            scoreboard_menu->ForceHide();
-        }
-    }
+    scoreboard_requested        = qfalse;
+    scoreboard_visibility_dirty = qtrue;
+    UI_UpdateScoreboardVisibility();
 }
 
 class ScoreboardListItem : public UIListCtrlItem
@@ -4609,6 +4606,7 @@ void UI_CreateScoreboard(void)
     scoreboardlist->SetUseScrollBar(false);
     scoreboardlist->SetDrawHeader(scoreboard_header);
     scoreboardlist->setHeaderFont("facfont-20");
+    scoreboard_visibility_dirty = qtrue;
 }
 
 /*
@@ -5260,6 +5258,9 @@ void CL_ShutdownUI(void)
         delete scoreboardlist;
         scoreboardlist = NULL;
     }
+    scoreboard_menu             = NULL;
+    scoreboard_requested        = qfalse;
+    scoreboard_visibility_dirty = qtrue;
     if (gmbox) {
         delete gmbox;
         gmbox = NULL;
