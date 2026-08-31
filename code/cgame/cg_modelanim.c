@@ -100,10 +100,10 @@ void CG_PlayerTeamIcon(refEntity_t *pModel, entityState_t *pPlayerState)
 
         memset(&iconEnt, 0, sizeof(iconEnt));
         if ((pPlayerState->eFlags & EF_PLAYER_TALKING) != 0 && ((cg.time >> 8) & 1) != 0) {
-            iconEnt.hModel = cgi.R_RegisterModel("textures/hud/talking_headicon.spr");
+            iconEnt.hModel = cgs.media.talkingHeadIconModel;
             bSpecialIcon   = qtrue;
         } else if ((pPlayerState->eFlags & EF_PLAYER_IN_MENU) != 0) {
-            iconEnt.hModel = cgi.R_RegisterModel("textures/hud/inmenu_headicon.spr");
+            iconEnt.hModel = cgs.media.inMenuHeadIconModel;
             bSpecialIcon   = qtrue;
         } else {
             if (!bInTeam) {
@@ -111,17 +111,16 @@ void CG_PlayerTeamIcon(refEntity_t *pModel, entityState_t *pPlayerState)
             }
 
             if (bInArtillery) {
-                iconEnt.hModel = cgi.R_RegisterModel("textures/hud/inmenu_artilleryicon.spr");
+                iconEnt.hModel = cgs.media.artilleryHeadIconModel;
                 bSpecialIcon   = qtrue;
             } else if ((pPlayerState->eFlags & 0x80) != 0) {
-                iconEnt.hModel = cgi.R_RegisterModel("textures/hud/allies_headicon.spr");
+                iconEnt.hModel = cgs.media.alliesHeadIconModel;
             } else {
-                iconEnt.hModel = cgi.R_RegisterModel("textures/hud/axis_headicon.spr");
+                iconEnt.hModel = cgs.media.axisHeadIconModel;
             }
         }
 
-        memset(vTmp, 0, sizeof(vTmp));
-        AnglesToAxis(vTmp, iconEnt.axis);
+        AxisClear(iconEnt.axis);
 
         iconEnt.scale              = 0.5f;
         iconEnt.renderfx           = 0;
@@ -194,9 +193,9 @@ void CG_PlayerTeamIcon(refEntity_t *pModel, entityState_t *pPlayerState)
 
             if (bSpecialIcon && bInTeam && fAlpha > 0.0f) {
                 if (pPlayerState->eFlags & EF_ALLIES) {
-                    iconEnt.hModel = cgi.R_RegisterModel("textures/hud/allies_headicon.spr");
+                    iconEnt.hModel = cgs.media.alliesHeadIconModel;
                 } else {
-                    iconEnt.hModel = cgi.R_RegisterModel("textures/hud/axis_headicon.spr");
+                    iconEnt.hModel = cgs.media.axisHeadIconModel;
                 }
                 VectorMA(iconEnt.origin, 4.0f, cg.refdef.viewaxis[0], iconEnt.origin);
                 iconEnt.scale         = iconEnt.scale - 0.1;

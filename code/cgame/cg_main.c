@@ -335,6 +335,37 @@ static qboolean CG_IsHandleUnique(qhandle_t handle) {
 
 /*
 ================
+CG_ClearImageShaderCache
+
+Configstring images are registered lazily so unused effects stay unloaded.
+================
+*/
+static void CG_ClearImageShaderCache(void)
+{
+    memset(cgs.image_precache, -1, sizeof(cgs.image_precache));
+}
+
+/*
+================
+CG_GetImageShader
+================
+*/
+qhandle_t CG_GetImageShader(int index)
+{
+    if (index < 0 || index >= MAX_IMAGES) {
+        cgi.DPrintf("CG_GetImageShader: bad index: %i\n", index);
+        return 0;
+    }
+
+    if (cgs.image_precache[index] == -1) {
+        cgs.image_precache[index] = cgi.R_RegisterShader(CG_ConfigString(CS_IMAGES + index));
+    }
+
+    return cgs.image_precache[index];
+}
+
+/*
+================
 CG_ProcessConfigString
 ================
 */
@@ -345,6 +376,10 @@ void CG_ProcessConfigString(int num, qboolean modelOnly)
     int         i;
 
     str = CG_ConfigString(num);
+
+    if (num >= CS_IMAGES && num < CS_IMAGES + MAX_IMAGES) {
+        cgs.image_precache[num - CS_IMAGES] = -1;
+    }
 
     if (num >= CS_MODELS && num < CS_MODELS + MAX_MODELS) {
         qhandle_t hOldModel;
@@ -545,6 +580,7 @@ void CG_PrepRefresh(void)
     int i;
 
     memset(&cg.refdef, 0, sizeof(cg.refdef));
+    CG_ClearImageShaderCache();
 
     cgi.R_LoadWorldMap(cgs.mapname);
 
@@ -582,6 +618,21 @@ void CG_PrepRefresh(void)
     cgs.media.objectivesBackShader     = cgi.R_RegisterShaderNoMip("textures/hud/objectives_backdrop");
     cgs.media.checkedBoxShader         = cgi.R_RegisterShaderNoMip("textures/objectives/filledbox");
     cgs.media.uncheckedBoxShader       = cgi.R_RegisterShaderNoMip("textures/objectives/emptybox");
+    cgs.media.disconnectShader         = cgi.R_RegisterShader("gfx/2d/net.tga");
+    cgs.media.serverLagShader          = cgi.R_RegisterShader("gfx/2d/slowserver");
+    cgs.media.alliesHudShader          = cgi.R_RegisterShader("textures/hud/allies");
+    cgs.media.axisHudShader            = cgi.R_RegisterShader("textures/hud/axis");
+    cgs.media.talkingHeadIconModel     = cgi.R_RegisterModel("textures/hud/talking_headicon.spr");
+    cgs.media.inMenuHeadIconModel      = cgi.R_RegisterModel("textures/hud/inmenu_headicon.spr");
+    cgs.media.artilleryHeadIconModel   = cgi.R_RegisterModel("textures/hud/inmenu_artilleryicon.spr");
+    cgs.media.alliesHeadIconModel      = cgi.R_RegisterModel("textures/hud/allies_headicon.spr");
+    cgs.media.axisHeadIconModel        = cgi.R_RegisterModel("textures/hud/axis_headicon.spr");
+
+    // instant message menus: the main menu, then groups a to f
+    cgs.media.instantMessageShaders[0] = cgi.R_RegisterShader("textures/hud/instamsg_main");
+    for (i = 1; i < ARRAY_LEN(cgs.media.instantMessageShaders); i++) {
+        cgs.media.instantMessageShaders[i] = cgi.R_RegisterShader(va("textures/hud/instamsg_group_%c", 'a' + i - 1));
+    }
 
     // go through all the configstrings and process them
     for (i = CS_SYSTEMINFO + 1; i < MAX_CONFIGSTRINGS; i++) {
