@@ -89,19 +89,12 @@ void CG_ScoresDown_f(void)
         return;
     }
 
-    if (cg.scoresRequestTime + 2000 >= cg.time) {
-        // send another request
-        cg.showScores = qtrue;
-        CG_PrepScoreBoardInfo();
-        cgi.UI_ShowScoreBoard(cg.scoresMenuName);
-        return;
+    if (cg.scoresRequestTime + 2000 < cg.time) {
+        cg.scoresRequestTime = cg.time;
+        cgi.SendClientCommand("score");
     }
 
-    cg.scoresRequestTime = cg.time;
-    cgi.SendClientCommand("score");
-
     if (!cg.showScores) {
-        // don't display anything until first score returns
         cg.showScores = qtrue;
         CG_PrepScoreBoardInfo();
         cgi.UI_ShowScoreBoard(cg.scoresMenuName);
