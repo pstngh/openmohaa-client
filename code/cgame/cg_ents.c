@@ -25,6 +25,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "cg_local.h"
 #include "cg_radar.h"
 
+static unsigned int entityFrameState[MAX_ENTITIES];
+static unsigned int entityFrameMarker;
+
 /*
 ==========================================================================
 
@@ -607,11 +610,12 @@ CG_AddPacketEntities
 */
 void CG_AddPacketEntities(void)
 {
-    int        num;
-    centity_t *cent;
-    int        child, parent;
-    qboolean   processed[MAX_ENTITIES];
-    int        i;
+    int            num;
+    centity_t     *cent;
+    int            child, parent;
+    unsigned int   presentMarker, processedMarker;
+    unsigned short multibeams[MAX_ENTITIES_IN_SNAPSHOT];
+    int            numMultibeams;
 
     // the auto-rotating items will all have the same axis
     cg.autoAngles[0] = 0;
@@ -630,12 +634,23 @@ void CG_AddPacketEntities(void)
     AnglesToAxis(cg.autoAnglesSlow, cg.autoAxisSlow);
     AnglesToAxis(cg.autoAnglesFast, cg.autoAxisFast);
 
-    for (i = 0; i < MAX_ENTITIES; i++) {
-        processed[i] = qtrue;
+    entityFrameMarker += 2;
+    if (!entityFrameMarker) {
+        memset(entityFrameState, 0, sizeof(entityFrameState));
+        entityFrameMarker = 2;
     }
 
+    presentMarker   = entityFrameMarker;
+    processedMarker = entityFrameMarker + 1;
+    numMultibeams   = 0;
+
     for (num = 0; num < cg.snap->numEntities; ++num) {
-        processed[cg.snap->entities[num].number] = qfalse;
+        child                   = cg.snap->entities[num].number;
+        entityFrameState[child] = presentMarker;
+
+        if (cg_entities[child].currentState.eType == ET_MULTIBEAM) {
+            multibeams[numMultibeams++] = child;
+        }
     }
 
     // add each entity sent over by the server
@@ -644,25 +659,23 @@ void CG_AddPacketEntities(void)
         cent  = &cg_entities[child];
         // add the parent first
         // so attachments are consistent
-        for (parent = cent->currentState.parent; parent != ENTITYNUM_NONE && !processed[parent];
+        for (parent = cent->currentState.parent;
+             parent != ENTITYNUM_NONE && entityFrameState[parent] == presentMarker;
              parent = cg_entities[parent].currentState.parent) {
-            processed[parent] = qtrue;
+            entityFrameState[parent] = processedMarker;
             CG_AddCEntity(&cg_entities[parent]);
         }
 
-        if (!processed[child]) {
+        if (entityFrameState[child] == presentMarker) {
             // now add the children if not processed
-            processed[child] = qtrue;
+            entityFrameState[child] = processedMarker;
             CG_AddCEntity(cent);
         }
     }
 
     // Add in the multibeams at the end
-    for (num = 0; num < cg.snap->numEntities; num++) {
-        cent = &cg_entities[cg.snap->entities[num].number];
-        if (cent->currentState.eType == ET_MULTIBEAM) {
-            CG_MultiBeam(cent);
-        }
+    for (num = 0; num < numMultibeams; num++) {
+        CG_MultiBeam(&cg_entities[multibeams[num]]);
     }
 }
 
@@ -681,7 +694,6 @@ void CG_GetOrigin(centity_t *cent, vec3_t origin)
             return;
         }
 
-        cgi.R_Model_GetHandle(parent->hModel);
         or = cgi.TIKI_Orientation(parent, cent->currentState.tag_num);
 
         VectorCopy(parent->origin, origin);
