@@ -164,6 +164,15 @@ void CG_AddLagometerSnapshotInfo(snapshot_t *snap)
     lagometer.snapshotCount++;
 }
 
+static qhandle_t CG_GetCachedHudShader(qhandle_t *handle, const char *name)
+{
+    if (!*handle) {
+        *handle = cgi.R_RegisterShader(name);
+    }
+
+    return *handle;
+}
+
 /*
 ==============
 CG_DrawDisconnect
@@ -190,7 +199,7 @@ void CG_DrawDisconnect(void)
         return;
     }
 
-    handle = cgi.R_RegisterShader("gfx/2d/net.tga");
+    handle = CG_GetCachedHudShader(&cgs.media.disconnectShader, "gfx/2d/net.tga");
     w      = cgi.R_GetShaderWidth(handle) * cgs.uiHiResScale[0];
     h      = cgi.R_GetShaderHeight(handle) * cgs.uiHiResScale[1];
     x      = ((float)cgs.glconfig.vidWidth - w) * 0.5;
@@ -369,7 +378,7 @@ static void CG_DrawServerLag()
         return;
     }
 
-    handle = cgi.R_RegisterShader("gfx/2d/slowserver");
+    handle = CG_GetCachedHudShader(&cgs.media.serverLagShader, "gfx/2d/slowserver");
     w      = (float)cgi.R_GetShaderWidth(handle) * cgs.uiHiResScale[0] / 4;
     h      = (float)cgi.R_GetShaderHeight(handle) * cgs.uiHiResScale[1] / 4;
     x      = ((float)cgs.glconfig.vidWidth - w) / 2;
@@ -865,6 +874,24 @@ void CG_DrawObjectives()
     }
 }
 
+static qhandle_t CG_GetTeamHudShader(int team)
+{
+    qhandle_t *handle;
+    const char *name;
+
+    if (team == TEAM_ALLIES) {
+        handle = &cgs.media.alliesHudShader;
+        name   = "textures/hud/allies";
+    } else if (team == TEAM_AXIS) {
+        handle = &cgs.media.axisHudShader;
+        name   = "textures/hud/axis";
+    } else {
+        return 0;
+    }
+
+    return CG_GetCachedHudShader(handle, name);
+}
+
 void CG_DrawPlayerTeam()
 {
     qhandle_t handle;
@@ -876,12 +903,7 @@ void CG_DrawPlayerTeam()
         return;
     }
 
-    handle = 0;
-    if (cg.snap->ps.stats[STAT_TEAM] == 3) {
-        handle = cgi.R_RegisterShader("textures/hud/allies");
-    } else if (cg.snap->ps.stats[STAT_TEAM] == 4) {
-        handle = cgi.R_RegisterShader("textures/hud/axis");
-    }
+    handle = CG_GetTeamHudShader(cg.snap->ps.stats[STAT_TEAM]);
 
     if (handle) {
         cgi.R_SetColor(NULL);
@@ -929,11 +951,7 @@ void CG_DrawPlayerEntInfo()
     fX = 56.0;
     fY = (float)cgs.glconfig.vidHeight * 0.5;
 
-    if (cg.clientinfo[iClientNum].team == TEAM_ALLIES) {
-        handle = cgi.R_RegisterShader("textures/hud/allies");
-    } else if (cg.clientinfo[iClientNum].team == TEAM_AXIS) {
-        handle = cgi.R_RegisterShader("textures/hud/axis");
-    }
+    handle = CG_GetTeamHudShader(cg.clientinfo[iClientNum].team);
 
     if (handle) {
         cgi.R_SetColor(0);
@@ -988,12 +1006,7 @@ void CG_UpdateAttackerDisplay()
     if (cgs.gametype > GT_FFA) {
         qhandle_t handle;
 
-        handle = 0;
-        if (cg.clientinfo[iClientNum].team == TEAM_ALLIES) {
-            handle = cgi.R_RegisterShader("textures/hud/allies");
-        } else if (cg.clientinfo[iClientNum].team == TEAM_AXIS) {
-            handle = cgi.R_RegisterShader("textures/hud/axis");
-        }
+        handle = CG_GetTeamHudShader(cg.clientinfo[iClientNum].team);
 
         if (handle) {
             cgi.R_SetColor(0);
@@ -1152,19 +1165,26 @@ void CG_DrawStopwatch()
 
 void CG_DrawInstantMessageMenu()
 {
-    float     w, h;
-    float     x, y;
-    qhandle_t handle;
+    float      w, h;
+    float      x, y;
+    int        shaderIndex;
+    qhandle_t  handle;
 
     if (!cg.iInstaMessageMenu) {
         return;
     }
 
-    if (cg.iInstaMessageMenu > 0) {
-        handle = cgi.R_RegisterShader(va("textures/hud/instamsg_group_%c", cg.iInstaMessageMenu + 96));
-    } else {
-        handle = cgi.R_RegisterShader("textures/hud/instamsg_main");
+    shaderIndex = cg.iInstaMessageMenu > 0 ? cg.iInstaMessageMenu : 0;
+    if (!cgs.media.instantMessageShaders[shaderIndex]) {
+        if (cg.iInstaMessageMenu > 0) {
+            cgs.media.instantMessageShaders[shaderIndex] =
+                cgi.R_RegisterShader(va("textures/hud/instamsg_group_%c", cg.iInstaMessageMenu + 96));
+        } else {
+            cgs.media.instantMessageShaders[0] = cgi.R_RegisterShader("textures/hud/instamsg_main");
+        }
     }
+
+    handle = cgs.media.instantMessageShaders[shaderIndex];
 
     w = cgi.R_GetShaderWidth(handle);
     h = cgi.R_GetShaderHeight(handle);
@@ -1285,11 +1305,7 @@ void CG_DrawSpectatorView_ver_15()
             cgs.media.attackerFont, buf, fX / cgs.uiHiResScale[0], fY / cgs.uiHiResScale[1], -1, cgs.uiHiResScale
         );
 
-        if (cg.clientinfo[iClientNum].team == TEAM_ALLIES) {
-            hShader = cgi.R_RegisterShader("textures/hud/allies");
-        } else if (cg.clientinfo[iClientNum].team == TEAM_AXIS) {
-            hShader = cgi.R_RegisterShader("textures/hud/axis");
-        }
+        hShader = CG_GetTeamHudShader(cg.clientinfo[iClientNum].team);
 
         if (hShader) {
             cgi.R_SetColor(NULL);
@@ -1373,6 +1389,16 @@ void CG_DrawSpectatorView()
     }
 }
 
+static qhandle_t CG_GetCrosshairShader(cvar_t *crosshair, qhandle_t *shader, int *modificationCount)
+{
+    if (*modificationCount != crosshair->modificationCount) {
+        *shader            = cgi.R_RegisterShaderNoMip(crosshair->string);
+        *modificationCount = crosshair->modificationCount;
+    }
+
+    return *shader;
+}
+
 void CG_DrawCrosshair()
 {
     centity_t *friendEnt;
@@ -1398,13 +1424,9 @@ void CG_DrawCrosshair()
         return;
     }
 
-    if (!cg.snap->ps.stats[STAT_CROSSHAIR]
-        && (!cg.snap->ps.stats[STAT_INZOOM] || cg.snap->ps.stats[STAT_INZOOM] > 30)) {
+    if (!cg.snap->ps.stats[STAT_CROSSHAIR]) {
         return;
     }
-
-    // Fixed in OPM: R_RegisterShaderNoMip
-    //  Use R_RegisterShaderNoMip, as it's UI stuff
 
     if (cgs.gametype != GT_FFA) {
         AngleVectorsLeft(cg.refdefViewAngles, forward, NULL, NULL);
@@ -1431,31 +1453,20 @@ void CG_DrawCrosshair()
 
             if (((myFlags & EF_ALLIES) && (friendEnt->currentState.eFlags & EF_ALLIES))
                 || ((myFlags & EF_AXIS) && (friendEnt->currentState.eFlags & EF_AXIS))) {
-                // friend
-                if (cg.snap->ps.stats[STAT_CROSSHAIR]) {
-                    shader = cgi.R_RegisterShaderNoMip(cg_crosshair_friend->string);
-                    if (!shader) {
-                        // Fixed in OPM
-                        //  Fallback to normal crosshair texture if it doesn't exist
-                        shader = cgi.R_RegisterShaderNoMip(cg_crosshair->string);
-                    }
-                }
-            } else {
-                // enemy
-                if (cg.snap->ps.stats[STAT_CROSSHAIR]) {
-                    shader = cgi.R_RegisterShaderNoMip(cg_crosshair->string);
-                }
-            }
-        } else {
-            if (cg.snap->ps.stats[STAT_CROSSHAIR]) {
-                shader = cgi.R_RegisterShaderNoMip(cg_crosshair->string);
+                shader = CG_GetCrosshairShader(
+                    cg_crosshair_friend,
+                    &cgs.media.crosshairFriendShader,
+                    &cgs.media.crosshairFriendModificationCount
+                );
             }
         }
-    } else {
-        // FFA
-        if (cg.snap->ps.stats[STAT_CROSSHAIR]) {
-            shader = cgi.R_RegisterShaderNoMip(cg_crosshair->string);
-        }
+    }
+
+    if (!shader) {
+        // Fall back to the normal crosshair when no friendly texture exists.
+        shader = CG_GetCrosshairShader(
+            cg_crosshair, &cgs.media.crosshairShader, &cgs.media.crosshairModificationCount
+        );
     }
 
     if (shader) {

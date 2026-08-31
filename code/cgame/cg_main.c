@@ -347,6 +347,36 @@ static qboolean CG_IsHandleUnique(qhandle_t handle) {
 
 /*
 ================
+CG_ClearImageShaderCache
+
+Configstring images are registered lazily so unused effects stay unloaded.
+================
+*/
+static void CG_ClearImageShaderCache(void)
+{
+    memset(cgs.image_precache, -1, sizeof(cgs.image_precache));
+}
+
+/*
+================
+CG_GetImageShader
+================
+*/
+qhandle_t CG_GetImageShader(int index)
+{
+    if (index < 0 || index >= MAX_IMAGES) {
+        cgi.Error(ERR_DROP, "CG_GetImageShader: bad index: %i", index);
+    }
+
+    if (cgs.image_precache[index] == -1) {
+        cgs.image_precache[index] = cgi.R_RegisterShader(CG_ConfigString(CS_IMAGES + index));
+    }
+
+    return cgs.image_precache[index];
+}
+
+/*
+================
 CG_ProcessConfigString
 ================
 */
@@ -357,6 +387,10 @@ void CG_ProcessConfigString(int num, qboolean modelOnly)
     int         i;
 
     str = CG_ConfigString(num);
+
+    if (num >= CS_IMAGES && num < CS_IMAGES + MAX_IMAGES) {
+        cgs.image_precache[num - CS_IMAGES] = -1;
+    }
 
     if (num >= CS_MODELS && num < CS_MODELS + MAX_MODELS) {
         qhandle_t hOldModel;
@@ -557,6 +591,7 @@ void CG_PrepRefresh(void)
     int i;
 
     memset(&cg.refdef, 0, sizeof(cg.refdef));
+    CG_ClearImageShaderCache();
 
     cgi.R_LoadWorldMap(cgs.mapname);
 
@@ -594,6 +629,8 @@ void CG_PrepRefresh(void)
     cgs.media.objectivesBackShader     = cgi.R_RegisterShaderNoMip("textures/hud/objectives_backdrop");
     cgs.media.checkedBoxShader         = cgi.R_RegisterShaderNoMip("textures/objectives/filledbox");
     cgs.media.uncheckedBoxShader       = cgi.R_RegisterShaderNoMip("textures/objectives/emptybox");
+    cgs.media.crosshairModificationCount       = -1;
+    cgs.media.crosshairFriendModificationCount = -1;
 
     // go through all the configstrings and process them
     for (i = CS_SYSTEMINFO + 1; i < MAX_CONFIGSTRINGS; i++) {
