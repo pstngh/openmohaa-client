@@ -1030,6 +1030,18 @@ static void IN_JoyMove( void )
 
 /*
 ===============
+IN_FlushMouseMotion
+===============
+*/
+static void IN_FlushMouseMotion( int *deltaX, int *deltaY )
+{
+	Com_QueueEvent( in_eventTime, SE_MOUSE, *deltaX, *deltaY, 0, NULL );
+	*deltaX = 0;
+	*deltaY = 0;
+}
+
+/*
+===============
 IN_ProcessEvents
 ===============
 */
@@ -1038,12 +1050,18 @@ static void IN_ProcessEvents( void )
 	SDL_Event e;
 	keyNum_t key = 0;
 	static keyNum_t lastKeyDown = 0;
+	int mouseMotionX = 0;
+	int mouseMotionY = 0;
 
 	if( !SDL_WasInit( SDL_INIT_VIDEO ) )
 			return;
 
 	while( SDL_PollEvent( &e ) )
 	{
+		// Preserve input ordering while avoiding one queue call per SDL motion packet.
+		if( e.type != SDL_MOUSEMOTION && ( mouseMotionX || mouseMotionY ) )
+			IN_FlushMouseMotion( &mouseMotionX, &mouseMotionY );
+
 		switch( e.type )
 		{
 			case SDL_KEYDOWN:
@@ -1123,9 +1141,8 @@ static void IN_ProcessEvents( void )
 			case SDL_MOUSEMOTION:
 				if( mouseActive )
 				{
-					if( !e.motion.xrel && !e.motion.yrel )
-						break;
-					Com_QueueEvent( in_eventTime, SE_MOUSE, e.motion.xrel, e.motion.yrel, 0, NULL );
+					mouseMotionX += e.motion.xrel;
+					mouseMotionY += e.motion.yrel;
 				}
 				break;
 
@@ -1237,6 +1254,9 @@ static void IN_ProcessEvents( void )
 				break;
 		}
 	}
+
+	if( mouseMotionX || mouseMotionY )
+		IN_FlushMouseMotion( &mouseMotionX, &mouseMotionY );
 }
 
 /*
