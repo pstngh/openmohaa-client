@@ -391,7 +391,7 @@ void CG_Decal(centity_t *cent)
 
     s1 = &cent->currentState;
 
-    shader = cgi.R_RegisterShader(CG_ConfigString(CS_IMAGES + s1->tag_num));
+    shader = CG_GetImageShader(s1->tag_num);
     ByteToDir(s1->surfaces[0], dir);
     CG_ImpactMark(
         shader,

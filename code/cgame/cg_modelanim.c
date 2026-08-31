@@ -28,6 +28,15 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 static qboolean cg_forceModelAllowed = qfalse;
 
+static qhandle_t CG_GetCachedIconModel(qhandle_t *handle, const char *name)
+{
+    if (!*handle) {
+        *handle = cgi.R_RegisterModel(name);
+    }
+
+    return *handle;
+}
+
 /*
 ===============
 CG_GetPlayerModelTiki
@@ -100,10 +109,12 @@ void CG_PlayerTeamIcon(refEntity_t *pModel, entityState_t *pPlayerState)
 
         memset(&iconEnt, 0, sizeof(iconEnt));
         if ((pPlayerState->eFlags & EF_PLAYER_TALKING) != 0 && ((cg.time >> 8) & 1) != 0) {
-            iconEnt.hModel = cgi.R_RegisterModel("textures/hud/talking_headicon.spr");
+            iconEnt.hModel =
+                CG_GetCachedIconModel(&cgs.media.talkingHeadIconModel, "textures/hud/talking_headicon.spr");
             bSpecialIcon   = qtrue;
         } else if ((pPlayerState->eFlags & EF_PLAYER_IN_MENU) != 0) {
-            iconEnt.hModel = cgi.R_RegisterModel("textures/hud/inmenu_headicon.spr");
+            iconEnt.hModel =
+                CG_GetCachedIconModel(&cgs.media.inMenuHeadIconModel, "textures/hud/inmenu_headicon.spr");
             bSpecialIcon   = qtrue;
         } else {
             if (!bInTeam) {
@@ -111,17 +122,20 @@ void CG_PlayerTeamIcon(refEntity_t *pModel, entityState_t *pPlayerState)
             }
 
             if (bInArtillery) {
-                iconEnt.hModel = cgi.R_RegisterModel("textures/hud/inmenu_artilleryicon.spr");
+                iconEnt.hModel = CG_GetCachedIconModel(
+                    &cgs.media.artilleryHeadIconModel, "textures/hud/inmenu_artilleryicon.spr"
+                );
                 bSpecialIcon   = qtrue;
             } else if ((pPlayerState->eFlags & 0x80) != 0) {
-                iconEnt.hModel = cgi.R_RegisterModel("textures/hud/allies_headicon.spr");
+                iconEnt.hModel =
+                    CG_GetCachedIconModel(&cgs.media.alliesHeadIconModel, "textures/hud/allies_headicon.spr");
             } else {
-                iconEnt.hModel = cgi.R_RegisterModel("textures/hud/axis_headicon.spr");
+                iconEnt.hModel =
+                    CG_GetCachedIconModel(&cgs.media.axisHeadIconModel, "textures/hud/axis_headicon.spr");
             }
         }
 
-        memset(vTmp, 0, sizeof(vTmp));
-        AnglesToAxis(vTmp, iconEnt.axis);
+        AxisClear(iconEnt.axis);
 
         iconEnt.scale              = 0.5f;
         iconEnt.renderfx           = 0;
@@ -194,9 +208,11 @@ void CG_PlayerTeamIcon(refEntity_t *pModel, entityState_t *pPlayerState)
 
             if (bSpecialIcon && bInTeam && fAlpha > 0.0f) {
                 if (pPlayerState->eFlags & EF_ALLIES) {
-                    iconEnt.hModel = cgi.R_RegisterModel("textures/hud/allies_headicon.spr");
+                    iconEnt.hModel =
+                        CG_GetCachedIconModel(&cgs.media.alliesHeadIconModel, "textures/hud/allies_headicon.spr");
                 } else {
-                    iconEnt.hModel = cgi.R_RegisterModel("textures/hud/axis_headicon.spr");
+                    iconEnt.hModel =
+                        CG_GetCachedIconModel(&cgs.media.axisHeadIconModel, "textures/hud/axis_headicon.spr");
                 }
                 VectorMA(iconEnt.origin, 4.0f, cg.refdef.viewaxis[0], iconEnt.origin);
                 iconEnt.scale         = iconEnt.scale - 0.1;
