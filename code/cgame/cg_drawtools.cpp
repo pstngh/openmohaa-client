@@ -1049,35 +1049,48 @@ void CG_UpdateAttackerDisplay()
 
 void CG_UpdateCountdown()
 {
-    const char *message = "";
+    countdownDisplayState_t desiredState;
+    const char             *message;
+    int                     secondsLeft;
 
     if (!cg.snap) {
         return;
     }
 
-    if (cg.matchStartTime != -1) {
-        if (cgs.gametype != GT_LIBERATION) {
-            int iSecondsLeft, iMinutesLeft;
+    desiredState = COUNTDOWN_DISPLAY_HIDDEN;
+    secondsLeft  = 0;
 
-            iSecondsLeft = (cgs.matchEndTime - cg.time) / 1000;
-            if (iSecondsLeft >= 0) {
-                iMinutesLeft = iSecondsLeft / 60;
-                message      = va("%s %2i:%02i", cgi.LV_ConvertString("Time Left:"), iMinutesLeft, iSecondsLeft % 60);
-            } else if (!cgs.matchEndTime) {
-                message = "";
-            }
-        } else {
-            // No clock on liberation game mode
-            message = "";
+    if (cg.matchStartTime == -1) {
+        desiredState = COUNTDOWN_DISPLAY_WAITING;
+    } else if (cgs.gametype != GT_LIBERATION) {
+        secondsLeft = (cgs.matchEndTime - cg.time) / 1000;
+        if (secondsLeft >= 0) {
+            desiredState = COUNTDOWN_DISPLAY_TIME_LEFT;
         }
-    } else {
-        // The match has not started yet
+    }
+
+    if (cg.countdownDisplayState == desiredState
+        && (desiredState != COUNTDOWN_DISPLAY_TIME_LEFT || cg.countdownSeconds == secondsLeft)
+        && cg.countdownModificationCount == ui_timemessage->modificationCount) {
+        return;
+    }
+
+    if (desiredState == COUNTDOWN_DISPLAY_TIME_LEFT) {
+        int minutesLeft = secondsLeft / 60;
+        message = va("%s %2i:%02i", cgi.LV_ConvertString("Time Left:"), minutesLeft, secondsLeft % 60);
+    } else if (desiredState == COUNTDOWN_DISPLAY_WAITING) {
         message = "Waiting For Players";
+    } else {
+        message = "";
     }
 
     if (strcmp(ui_timemessage->string, message)) {
         cgi.Cvar_Set("ui_timemessage", message);
     }
+
+    cg.countdownDisplayState       = desiredState;
+    cg.countdownSeconds            = secondsLeft;
+    cg.countdownModificationCount = ui_timemessage->modificationCount;
 }
 
 static void CG_ExecuteStopwatchHudCommand(stopwatchHudState_t state, qboolean show)
