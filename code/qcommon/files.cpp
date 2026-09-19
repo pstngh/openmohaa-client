@@ -240,6 +240,7 @@ typedef struct {
     char		path[MAX_OSPATH];		// c:\quake3
     char		fullpath[MAX_OSPATH];		// c:\quake3\baseq3
 	char		gamedir[MAX_OSPATH];	// baseq3
+	qboolean	configsOnly;			// only serves files under configs/ (see FS_AddConfigDirectory)
 } directory_t;
 
 typedef struct searchpath_s {
@@ -1294,6 +1295,18 @@ qboolean FS_IsDemoExt(const char *filename, int namelen)
 
 /*
 ===========
+FS_IsConfigsPath
+
+Returns true for qpaths under configs/, where configuration files are written
+===========
+*/
+static qboolean FS_IsConfigsPath(const char *filename)
+{
+	return (qboolean)(!Q_stricmpn(filename, "configs", 7) && (filename[7] == '/' || filename[7] == '\\'));
+}
+
+/*
+===========
 FS_FOpenFileReadDir
 
 Tries opening file "filename" in searchpath "search"
@@ -1334,6 +1347,16 @@ long FS_FOpenFileReadDir(const char *filename, searchpath_t *search, fileHandle_
 	// make sure the q3key file is only readable by the quake3.exe at initialization
 	// any other time the key should only be accessed in memory using the provided functions
 	if(com_fullyInitialized && strstr(filename, "q3key"))
+	{
+		if(file == NULL)
+			return qfalse;
+
+		*file = 0;
+		return -1;
+	}
+
+	// a configs-only path serves nothing but the configs written to it
+	if(search->dir && search->dir->configsOnly && !FS_IsConfigsPath(filename))
 	{
 		if(file == NULL)
 			return qfalse;
@@ -2488,8 +2511,9 @@ char **FS_ListFilteredFiles( const char *path, const char *extension, const char
 				char	**sysFiles;
 				char	*name;
 
-				// don't scan directories for files if we are pure or restricted
-				if ( fs_numServerPaks && !allowNonPureFilesOnDisk ) {
+				// don't scan directories for files if we are pure or restricted;
+				// a configs-only path is also listed through its regular entry
+				if ( ( fs_numServerPaks && !allowNonPureFilesOnDisk ) || search->dir->configsOnly ) {
 					continue;
 				} else {
 					netpath = FS_BuildOSPath( search->dir->path, search->dir->gamedir, path );
@@ -2971,7 +2995,7 @@ void FS_Path_f( void ) {
 			}
 		}
 		else {
-			Com_Printf( "%s/%s\n", s->dir->path, s->dir->gamedir );
+			Com_Printf( "%s/%s%s\n", s->dir->path, s->dir->gamedir, s->dir->configsOnly ? " (configs only)" : "" );
 		}
 	}
 
@@ -3122,7 +3146,7 @@ void FS_AddGameDirectory(const char *path, const char *dir) {
 
 	// Unique
 	for ( sp = fs_searchpaths ; sp ; sp = sp->next ) {
-		if ( sp->dir && !Q_stricmp(sp->dir->path, path) && !Q_stricmp(sp->dir->gamedir, dir)) {
+		if ( sp->dir && !sp->dir->configsOnly && !Q_stricmp(sp->dir->path, path) && !Q_stricmp(sp->dir->gamedir, dir)) {
 			return;			// we've already got this one
 		}
 	}
@@ -3240,6 +3264,72 @@ void FS_AddGameDirectory(const char *path, const char *dir) {
 
 /*
 ================
+FS_HomeConfigPathSharesGamePath
+
+True when configs are written into a game data path, which is the case for
+the default installation directory. That path then keeps its regular search
+priority, so user data still overrides it, and only its configs are searched
+first through FS_AddConfigDirectory.
+================
+*/
+static qboolean FS_HomeConfigPathSharesGamePath(void)
+{
+	const cvar_t *gamePaths[] = { fs_basepath, fs_apppath, fs_steampath, fs_gogpath, fs_microsoftstorepath };
+	const char   *configPath;
+
+	if (!fs_homeconfigpath || !fs_homeconfigpath->string[0]) {
+		return qfalse;
+	}
+
+	configPath = fs_homeconfigpath->string;
+
+	// a home path shared with the user data already has the highest priority
+	if ((fs_homedatapath && !Q_stricmp(configPath, fs_homedatapath->string))
+		|| (fs_homestatepath && !Q_stricmp(configPath, fs_homestatepath->string))) {
+		return qfalse;
+	}
+
+	for (int i = 0; i < ARRAY_LEN(gamePaths); i++) {
+		if (gamePaths[i] && !Q_stricmp(configPath, gamePaths[i]->string)) {
+			return qtrue;
+		}
+	}
+
+	return qfalse;
+}
+
+/*
+================
+FS_AddConfigDirectory
+
+Adds a highest priority search path that only serves files under configs/
+================
+*/
+static void FS_AddConfigDirectory(const char *path, const char *dir)
+{
+	searchpath_t *search;
+
+	for (search = fs_searchpaths; search; search = search->next) {
+		if (search->dir && search->dir->configsOnly && !Q_stricmp(search->dir->path, path)
+			&& !Q_stricmp(search->dir->gamedir, dir)) {
+			return;
+		}
+	}
+
+	search      = (searchpath_t *)Z_Malloc(sizeof(searchpath_t));
+	search->dir = (directory_t *)Z_Malloc(sizeof(*search->dir));
+
+	Q_strncpyz(search->dir->path, path, sizeof(search->dir->path));
+	Q_strncpyz(search->dir->fullpath, FS_BaseDir_BuildOSPath(path, dir), sizeof(search->dir->fullpath));
+	Q_strncpyz(search->dir->gamedir, dir, sizeof(search->dir->gamedir));
+	search->dir->configsOnly = qtrue;
+
+	search->next   = fs_searchpaths;
+	fs_searchpaths = search;
+}
+
+/*
+================
 FS_AddGameDirectories
 ================
 */
@@ -3254,6 +3344,11 @@ static void FS_AddGameDirectories(const char *dir)
 		}
 
 		FS_AddGameDirectory(pathVar->string, dir);
+	}
+
+	// configs written beside the game data must be read back before any other copy
+	if (FS_HomeConfigPathSharesGamePath()) {
+		FS_AddConfigDirectory(fs_homeconfigpath->string, dir);
 	}
 }
 
@@ -3562,7 +3657,11 @@ FS_InitPathVars
 static void FS_InitPathVars( void ) {
 	memset( fs_pathVars, 0, sizeof( fs_pathVars ) );
 
-	FS_AddPathVar( fs_homeconfigpath );
+	// a config path shared with game data must not raise that data above the
+	// user data paths; its configs get their own entry in FS_AddGameDirectories
+	if ( !FS_HomeConfigPathSharesGamePath() ) {
+		FS_AddPathVar( fs_homeconfigpath );
+	}
 	FS_AddPathVar( fs_homedatapath );
 	FS_AddPathVar( fs_homestatepath );
 	FS_AddPathVar( fs_basepath );
@@ -3574,15 +3673,71 @@ static void FS_InitPathVars( void ) {
 
 /*
 ================
+FS_CanWriteConfigs
+
+Checks that configs can be written under <path>/<game>/configs, as failing to
+create that directory later is fatal. Creates the same directories the first
+config write would.
+================
+*/
+static qboolean FS_CanWriteConfigs(const char *path, const char *game)
+{
+	char  ospath[MAX_OSPATH];
+	FILE *probe;
+
+	Q_strncpyz(ospath, FS_BaseDir_BuildOSPath(path, game), sizeof(ospath));
+	if (!Sys_Mkdir(ospath)) {
+		return qfalse;
+	}
+
+	Q_strncpyz(ospath, FS_BuildOSPath(path, game, "configs"), sizeof(ospath));
+	if (!Sys_Mkdir(ospath)) {
+		return qfalse;
+	}
+
+	Q_strncpyz(ospath, FS_BuildOSPath(path, game, "configs/.writetest"), sizeof(ospath));
+	probe = Sys_FOpen(ospath, "wb");
+	if (!probe) {
+		return qfalse;
+	}
+
+	fclose(probe);
+	remove(ospath);
+	return qtrue;
+}
+
+/*
+================
+FS_ConfigGameDir
+
+Returns the game directory configs are written to, the last one FS_Startup adds
+================
+*/
+static const char *FS_ConfigGameDir(const char *gameName)
+{
+	const char *gameDir = Cvar_VariableString("fs_game");
+
+	if (!*gameDir) {
+		gameDir = Cvar_VariableString("fs_basegame");
+	}
+
+	return *gameDir ? gameDir : gameName;
+}
+
+/*
+================
 FS_Startup
 ================
 */
 static void FS_Startup(const char* gameName)
 {
 	cvar_t *fs_homepath = Cvar_Get("fs_homepath", "", CVAR_INIT|CVAR_PROTECTED);
-	const char *configPath = Sys_DefaultHomeConfigPath();
+	// Keep player configs with the game installation, regardless of the working directory.
+	const char *configPath = Sys_DefaultInstallPath();
 	const char *dataPath = Sys_DefaultHomeDataPath();
 	const char *statePath = Sys_DefaultHomeStatePath();
+	const char *configGame = FS_ConfigGameDir(gameName);
+	qboolean installNotWritable = qfalse;
 
 	if(*(fs_homepath)->string) {
 		// Setting fs_homepath manually overrides everything else
@@ -3590,9 +3745,18 @@ static void FS_Startup(const char* gameName)
 	} else if(!*configPath || !*dataPath || !*statePath) {
 		// #shouldneverhappen; just a sensible fallback
 		configPath = dataPath = statePath = Sys_DefaultInstallPath();
+	} else if(!*Cvar_VariableString("fs_homeconfigpath") && *configGame && !FS_InvalidGameDir(configGame)
+		&& !FS_CanWriteConfigs(configPath, configGame)) {
+		// A read-only installation would make the first config write fatal
+		configPath = Sys_DefaultHomeConfigPath();
+		installNotWritable = qtrue;
 	}
 
 	Com_Printf( "----- FS_Startup -----\n" );
+
+	if (installNotWritable) {
+		Com_Printf( "Installation directory is not writable, storing configs in %s\n", configPath );
+	}
 
 	fs_debug = Cvar_Get( "fs_debug", "0", 0 );
 	fs_basepath = Cvar_Get("fs_basepath", Sys_DefaultInstallPath(), CVAR_INIT | CVAR_PROTECTED);
@@ -4478,7 +4642,7 @@ void FS_FileTime(const char *filename, char *date, char *size)
     // but look through all searchpaths
     //ospath = FS_BuildOSPath(fs_homepath->string, fs_gamedir, filename);
     for (auto search = fs_searchpaths; search; search = search->next) {
-        if (search->dir != NULL && search->dir->path[0]) {
+        if (search->dir != NULL && search->dir->path[0] && !search->dir->configsOnly) {
             ospath = FS_BuildOSPath(search->dir->path, fs_gamedir, filename);
             result = stat(ospath, &fileStat);
             if (result != -1) {
