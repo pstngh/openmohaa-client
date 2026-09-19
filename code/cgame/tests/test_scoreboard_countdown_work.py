@@ -11,6 +11,7 @@ CLIENT = ROOT / "client"
 
 CONSOLE_COMMANDS = (CGAME / "cg_consolecmds.c").read_text()
 DRAWTOOLS = (CGAME / "cg_drawtools.cpp").read_text()
+SERVER_COMMANDS = (CGAME / "cg_servercmds.c").read_text()
 UI = (CLIENT / "cl_ui.cpp").read_text()
 
 
@@ -50,6 +51,18 @@ def update_scoreboard_visibility(requested, menu_active, dirty, previous_menu_ac
 
     action = "show" if requested and not menu_active else "hide"
     return False, menu_active, [action]
+
+
+def countdown_message(match_start_time, match_end_time, now, liberation=False):
+    if match_start_time == -1:
+        return "Waiting For Players"
+    if liberation:
+        return ""
+
+    seconds_left = (match_end_time - now) // 1000
+    if seconds_left < 0:
+        return ""
+    return f"{seconds_left // 60}:{seconds_left % 60:02d}"
 
 
 class ScoreboardCountdownWorkTests(unittest.TestCase):
@@ -109,13 +122,26 @@ class ScoreboardCountdownWorkTests(unittest.TestCase):
     def test_countdown_formats_only_when_displayed_second_changes(self):
         countdown = function_block(DRAWTOOLS, "void CG_UpdateCountdown()")
         cache_check = countdown.index("cg.countdownDisplayState == desiredState")
-        localization = countdown.index("LV_ConvertString")
+        formatting = countdown.index('va("%i:%02i"')
 
-        self.assertLess(cache_check, localization)
+        self.assertLess(cache_check, formatting)
         self.assertIn("cg.countdownSeconds == secondsLeft", countdown)
         self.assertIn("cg.countdownModificationCount == ui_timemessage->modificationCount", countdown)
-        self.assertEqual(countdown.count("LV_ConvertString"), 1)
+        self.assertNotIn("Time Left:", countdown)
+        self.assertNotIn("LV_ConvertString", countdown)
+        self.assertIn('message = "Waiting For Players";', countdown)
         self.assertEqual(countdown.count('Cvar_Set("ui_timemessage"'), 1)
+
+    def test_countdown_messages_keep_non_clock_states(self):
+        self.assertEqual(countdown_message(-1, 0, 0), "Waiting For Players")
+        self.assertEqual(countdown_message(0, 65_000, 0), "1:05")
+        self.assertEqual(countdown_message(0, 600_000, 1_000), "9:59")
+        self.assertEqual(countdown_message(0, 0, 1_000), "")
+        self.assertEqual(countdown_message(0, 65_000, 0, liberation=True), "")
+
+    def test_top_right_score_overlay_is_never_added(self):
+        self.assertNotIn("ui_addhud hud_score", SERVER_COMMANDS)
+        self.assertIn("ui_removehud hud_score", SERVER_COMMANDS)
 
 
 if __name__ == "__main__":
