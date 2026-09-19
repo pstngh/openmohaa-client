@@ -22,7 +22,7 @@ jobs:
     # The runner image provides python3 and the c++ compiler the tests use
     - name: Test
       run: |
-        find code -path '*/tests/test_*.py' -print | sort |
+        find code hud -path '*/tests/test_*.py' -print | sort |
           while IFS= read -r test_file; do
             python3 "$test_file"
           done
