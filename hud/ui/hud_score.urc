@@ -1,0 +1,7 @@
+// Intentionally empty: the top-right score overlay is disabled.
+menu "hud_score" 1 1 NONE 1
+bgcolor 0 0 0 0
+fgcolor 1 1 1 1
+align right top
+
+end.
