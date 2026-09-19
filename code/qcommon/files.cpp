@@ -3580,7 +3580,8 @@ FS_Startup
 static void FS_Startup(const char* gameName)
 {
 	cvar_t *fs_homepath = Cvar_Get("fs_homepath", "", CVAR_INIT|CVAR_PROTECTED);
-	const char *configPath = Sys_DefaultHomeConfigPath();
+	// Keep player configs with the game installation, regardless of the working directory.
+	const char *configPath = Sys_DefaultInstallPath();
 	const char *dataPath = Sys_DefaultHomeDataPath();
 	const char *statePath = Sys_DefaultHomeStatePath();
 
