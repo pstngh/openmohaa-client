@@ -222,12 +222,15 @@ qboolean	CL_GetSnapshot( int snapshotNumber, snapshot_t *snapshot ) {
 		if (pnum == ENTITYNUM_NONE) {
 			parents[s1->number] = -2;
 		} else {
-			if (parents[pnum] == -2) {
+			if ((unsigned int)pnum < MAX_ENTITIES_IN_SNAPSHOT && parents[pnum] == -2) {
 				parents[s1->number] = -2;
-			} else {
+			} else if ((unsigned int)pnum < MAX_ENTITIES_IN_SNAPSHOT) {
 				// add it later
 				parents[s1->number] = pnum;
 				continue;
+			} else {
+				Com_DPrintf("CL_GetSnapshot: invalid parent %d for entity %d\n", pnum, s1->number);
+				parents[s1->number] = -2;
 			}
 		}
 
