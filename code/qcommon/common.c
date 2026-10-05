@@ -2509,8 +2509,6 @@ void Com_Frame( void ) {
 
 	Com_ReadFromPipe();
 
-    Sys_ProcessBackgroundTasks();
-
 	com_frameNumber++;
 }
 

@@ -787,10 +787,6 @@ int main( int argc, char **argv )
 	char *protocolCommand = NULL;
 #endif
 
-#ifdef USE_AUTOUPDATER
-	Sys_LaunchAutoupdater(argc, argv);
-#endif
-
 #ifndef DEDICATED
 	// SDL version check
 

@@ -31,8 +31,6 @@ jobs:
     environment: ${{ inputs.environment }}
     env:
         flexbison-branch: 'v2.5.25'
-        wolfssl-version: 'v5.7.6-stable'
-        curl-version: '8_12_1'
         openal-soft-branch: '1.24.3'
         sdl2-branch: 'release-2.32.8'
 
@@ -176,39 +174,6 @@ jobs:
         if (("x64", "ARM64") -icontains "${{ matrix.architecture.config }}") { Rename-Item -Path '.\install\bin\OpenAL32.dll' -NewName 'OpenAL64.dll' }
 
     ###
-    # cURL
-    #
-    # Uses Schannel as SSL backend, native CAs are used
-    ###
-    - name: Cache cURL
-      id: cache-curl
-      uses: actions/cache@v4
-      with:
-        path: 'thirdparties/curl/install'
-        key: ${{ runner.os }}-${{ matrix.architecture.name }}-curl-${{ env.curl-version }}-v1
-
-    # cURL setup
-    - name: Checkout cURL
-      if: steps.cache-curl.outputs.cache-hit != 'true'
-      uses: actions/checkout@v4
-      with:
-        repository: 'curl/curl'
-        path: 'thirdparties/curl'
-        ref: 'curl-${{ env.curl-version }}'
-
-    # cURL build
-    - name: Configure and install curl
-      if: steps.cache-curl.outputs.cache-hit != 'true'
-      working-directory: ${{github.workspace}}/thirdparties/curl
-      run: |
-        cmake -B ./build `
-            -DCMAKE_INSTALL_PREFIX='${{github.workspace}}/thirdparties/curl/install' `
-            -DCURL_USE_LIBPSL=OFF `
-            -DCURL_USE_SCHANNEL=ON
-        cmake --build ./build --config Release --parallel
-        cmake --install ./build --config Release
-
-    ###
     # Project
     ###
 
@@ -228,7 +193,6 @@ jobs:
         -DSDL2_DIR='${{github.workspace}}/thirdparties/SDL2/install/cmake' `
         -DOPENAL_LIBRARY='${{github.workspace}}/thirdparties/soft-oal' `
         -DOPENAL_INCLUDE_DIR='${{github.workspace}}/thirdparties/soft-oal/install/include/AL' `
-        -DCURL_ROOT='${{github.workspace}}/thirdparties/curl/install' `
         -DFLEX_EXECUTABLE='${{github.workspace}}/thirdparties/winflexbison-install/win_flex.exe' `
         -DPRODUCT_VERSION_STAGE='${{ env.RELEASE_STAGE }}'".Replace("`r", "").Replace("`n", "") >> $env:GITHUB_ENV
 
@@ -250,7 +214,6 @@ jobs:
         New-Item -ItemType Directory '${{github.workspace}}/package'
         Copy-Item '${{github.workspace}}/thirdparties/SDL2/install/bin/*.dll' -Destination '${{github.workspace}}/package'
         Copy-Item '${{github.workspace}}/thirdparties/soft-oal/install/bin/*.dll' -Destination '${{github.workspace}}/package'
-        Copy-Item '${{github.workspace}}/thirdparties/curl/install/bin/*.dll' -Destination '${{github.workspace}}/package'
         if (Test-Path ${{github.workspace}}/install/bin) { Copy-Item '${{github.workspace}}/install/bin/*' -Include '*.dll','*.exe','*.pdb' -Destination '${{github.workspace}}/package' }
         if (Test-Path ${{github.workspace}}/install/lib) { Copy-Item '${{github.workspace}}/install/lib/*' -Include '*.dll','*.exe','*.pdb' -Destination '${{github.workspace}}/package' }
 
